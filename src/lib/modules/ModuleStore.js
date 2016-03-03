@@ -1,11 +1,11 @@
 import VirtualPath from '../vfs/VirtualPath';
 
 export class Module {
-    constructor(name) {
+    constructor(name, exports = {}) {
         this.name = name;
         this.directory = null;
         this.moduleFile = null;
-        this.module = { exports: {} };
+        this.module = { exports };
     }
 }
 
@@ -29,18 +29,18 @@ export class ModuleLoader {
         const scope = {
             global: null,
             process: this.process,
-            require,
+            require: requireExports,
             module
         };
         scope.global = scope;
         this.evalInScope(scope, script);
-        function require(moduleName) {
-            return _this.store.require(cwd, moduleName);
+        function requireExports(moduleName) {
+            return _this.store.requireExports(cwd, moduleName);
         }
     }
 
-    load(store, module) {
-        const script = this.vfs.readText(module.moduleFile);
+    load(module) {
+        const script = this.vfs.loadText(this.process.cwd(), module.moduleFile);
         return this._runScript(module.directory, script, module.module);
     }
 }
@@ -52,6 +52,10 @@ export class ModuleStore {
         this.store = new Map();
     }
 
+    registerModule(module) {
+        this.store.set(module.name, module);
+    }
+
     requireModule(cwd, path) {
         var name = this.resolver.normalize(cwd, path);
         const tmp = this.store.get(name);
@@ -61,14 +65,14 @@ export class ModuleStore {
         const moduleFile = this.resolver.findModuleFile(cwd, path);
         if (!moduleFile) throw new Error("Module not found: " + moduleFile);
         var module = new Module(name);
-        this.store.set(name, module);
+        this.registerModule(module);
         module.moduleFile = moduleFile;
         module.directory = VirtualPath.getParent(moduleFile);
-        this.loader.load(this, module);
+        this.loader.load(module);
         return module;
     }
 
-    require(cwd, path) {
+    requireExports(cwd, path) {
         return this.requireModule(cwd, path).module.exports;
     }
 }

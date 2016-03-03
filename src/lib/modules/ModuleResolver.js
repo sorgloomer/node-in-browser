@@ -24,13 +24,13 @@ export class ModuleResolver {
   resolveFileModule(cwd, moduleName) {
     const hasExt = ('' + moduleName).endsWith(this.extension);
     const fileName = VirtualPath.resolve(cwd, hasExt ? moduleName : moduleName + this.extension);
-    return this.fs.exists(fileName) ? fileName : null;
+    return this.fs.isFile(cwd, fileName) ? fileName : null;
   }
 
   resolveNodeModule(cwd, moduleName) {
     return firstNotNull(this.roots, function(root) {
       var absolute = VirtualPath.normalize(VirtualPath.combine(root, moduleName));
-      return this.fs.existsSync(absolute) ? absolute : null;
+      return this.fs.isFile(cwd, absolute) ? absolute : null;
     });
   }
 

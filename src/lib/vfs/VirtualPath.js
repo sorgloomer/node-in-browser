@@ -12,10 +12,11 @@ function normalize(path) {
   }
 
   function iterate(path) {
-    return path
-      .replace(/[\\\/]+/g, '/')
-      .replace(/[\\\/]\.(?:$|\\|\/)/g, '')
-      .replace(/(?:^|\\|\/)[^\\\/]*[\\\/]\.\.(?:$|\\|\/)/g, '');
+    path = path.replace(/[\\\/]+/g, '/');
+    path = path.replace(/[\/]\.$/, '');
+    path = path.replace(/[\/]\.\//g, '/');
+    path = path.replace(/(^|\/)[^\/]*\/\.\.($|\/)/g, (a, b, c) => b + c);
+    return path;
   }
 }
 
@@ -39,7 +40,7 @@ function explode(path) {
 }
 
 function isRelativeOrAbsolute(path) {
-  return /^[\\\/\.]/.test(path);
+  return /^(?:\.|\.\.)(?:\\|\/|$)/.test(path);
 }
 
 function getParent(path) {
@@ -47,6 +48,11 @@ function getParent(path) {
   return m ? m[1] : path;
 }
 
+function getFileName(path) {
+  const m = /[\\\/]([^\\\/]+)[\\\/]*$/.exec(path);
+  return m ? m[1] : path;
+}
+
 export default {
-  combine, normalize, explode, isRelative, resolve, isRelativeOrAbsolute, getParent
+  combine, normalize, explode, isRelative, resolve, isRelativeOrAbsolute, getParent, getFileName
 };

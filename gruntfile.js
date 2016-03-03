@@ -1,7 +1,6 @@
 module.exports = function(grunt) {
 
-    grunt.loadNpmTasks('grunt-babel');
-    grunt.loadNpmTasks('grunt-contrib-clean');
+    require('load-grunt-tasks')(grunt);
 
     grunt.initConfig({
         clean: {
@@ -10,22 +9,34 @@ module.exports = function(grunt) {
         },
         babel: {
             modules: {
-                options: { presets: ['es2015'] },
-                files: [{ expand: true, cwd: 'src', src: '**/*.js', dest: '.tmp/babel/' }]
+                options: {presets: ['es2015']},
+                files: [{expand: true, cwd: 'src', src: '**/*.js', dest: '.tmp/babel/'}]
+            }
+        },
+        webpack: {
+            dist: {
+                entry: './.tmp/babel/index.js',
+                output: {
+                    path: './dist/',
+                    filename: 'bundle.js'
+                }
+            }
+        },
+        copy: {
+            dist: {
+                files: [{expand: true, cwd: 'src', src: '**/*.html', dest: 'dist/'}]
+            }
+        },
+        connect: {
+            dist: {
+                options: {
+                    port: 9001,
+                    base: 'dist',
+                    keepalive: true
+                }
             }
         }
     });
 
-    grunt.registerTask('webpack', function() {
-        const webpack = require('webpack');
-        webpack({
-            entry:'./.tmp/babel/index.js',
-            output:{
-                path: '/dist/',
-                filename: 'bundle.js'
-            }
-        });
-    });
-
-    grunt.registerTask('default', ['clean', 'babel', 'webpack']);
+    grunt.registerTask('default', ['clean', 'babel', 'webpack', 'copy', 'connect']);
 };

@@ -1,6 +1,7 @@
 
 import { VirtualFs, MemoryDirectory, MemoryFile } from '../vfs/VirtualFs';
-import { ModuleStore, ModuleLoader } from './ModuleStore';
+import { VirtualNodeFs } from '../vfs/VirtualNodeFs';
+import { ModuleStore, ModuleLoader, Module } from './ModuleStore';
 import { ModuleResolver } from './ModuleResolver';
 import { ProcessObject } from '../process/ProcessObject';
 
@@ -14,6 +15,7 @@ export class NodeScope {
         this.moduleLoader = new ModuleLoader(this.vfs, null, this.process);
         this.moduleStore = new ModuleStore(this.moduleResolver, this.moduleLoader);
         this.moduleLoader.store = this.moduleStore;
+        this.moduleStore.registerModule(new Module('fs', new VirtualNodeFs(this.vfs, this.process)));
     }
 
     eval(script) {

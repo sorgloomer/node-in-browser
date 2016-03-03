@@ -1,8 +1,13 @@
 import VirtualPath from './VirtualPath';
 
 
-export class VirtuaNodeFs {
+export class VirtualNodeFs {
   constructor(vfs, process) {
+    this._vfs = vfs;
+    this._process = process;
+  }
 
+  storeText(path, text) {
+    this._vfs.storeText(this._process.cwd(), path, text);
   }
 }
