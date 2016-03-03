@@ -38,6 +38,15 @@ function explode(path) {
   };
 }
 
+function isRelativeOrAbsolute(path) {
+  return /^[\\\/\.]/.test(path);
+}
+
+function getParent(path) {
+  const m = /^(.*)[\\\/][^\\\/]+[\\\/]*$/.exec(path);
+  return m ? m[1] : path;
+}
+
 export default {
-  combine, normalize, explode, isRelative, resolve
+  combine, normalize, explode, isRelative, resolve, isRelativeOrAbsolute, getParent
 };
