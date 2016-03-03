@@ -17,9 +17,8 @@ export class ModuleLoader {
     }
 
     evalInScope(scope, script) {
-        with(scope) {
-            eval(script);
-        }
+        const names = Object.keys(scope);
+        (new Function(...names, script))(...names.map(n => scope[n]));
     }
 
     runScript(cwd, script) {
@@ -28,12 +27,12 @@ export class ModuleLoader {
     _runScript(cwd, script, module) {
         const _this = this;
         const scope = {
-            globals: null,
+            global: null,
             process: this.process,
             require,
             module
         };
-        scope.globals = scope;
+        scope.global = scope;
         this.evalInScope(scope, script);
         function require(moduleName) {
             return _this.store.require(cwd, moduleName);
