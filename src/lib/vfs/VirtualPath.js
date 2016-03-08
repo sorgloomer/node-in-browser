@@ -35,7 +35,7 @@ function resolve(cwd, path) {
 function explode(path) {
   return {
     relative: isRelative(path),
-    components: path.split(/[\\\/]+/g)
+    components: path.split(/[\\\/]+/g).filter(i=>i)
   };
 }
 

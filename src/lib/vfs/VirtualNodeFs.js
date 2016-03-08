@@ -10,4 +10,7 @@ export class VirtualNodeFs {
   storeText(path, text) {
     this._vfs.storeText(this._process.cwd(), path, text);
   }
+  loadText(path) {
+    return this._vfs.loadText(this._process.cwd(), path);
+  }
 }

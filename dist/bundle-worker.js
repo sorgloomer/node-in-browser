@@ -46,9 +46,43 @@
 
 	'use strict';
 
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	exports.worker = exports.node_scope = undefined;
+
 	var _NodeScope = __webpack_require__(1);
 
-	new _NodeScope.NodeScope().eval('\n\nvar fs = require(\'fs\');\nfs.storeText(\'./mymodule.js\', "console.log(\'p mymodule\');");\n\nconsole.log(\'p main #1\');\nrequire(\'./mymodule\');\nconsole.log(\'p main #2\');\n\n');
+	var node_scope = exports.node_scope = new _NodeScope.NodeScope();
+	var worker = exports.worker = self;
+
+	worker.onmessage = function (_ref) {
+	  var _ref$data = _ref.data;
+	  var command = _ref$data.command;
+	  var value = _ref$data.value;
+	  var token = _ref$data.token;
+
+	  switch (command) {
+	    case 'eval':
+	      try {
+	        var result = node_scope.eval(value);
+	        worker.postMessage({
+	          type: 'resolve',
+	          value: result,
+	          token: token
+	        });
+	      } catch (e) {
+	        worker.postMessage({
+	          type: 'reject',
+	          token: token
+	          // TODO: how to serialize errors?
+	        });
+	      }
+	      break;
+	    default:
+	      throw new Error('Unknown command: ' + command);
+	  }
+	};
 
 
 /***/ },
@@ -66,27 +100,38 @@
 
 	var _VirtualFs = __webpack_require__(2);
 
-	var _VirtualNodeFs = __webpack_require__(4);
+	var _HttpFs = __webpack_require__(4);
 
-	var _ModuleStore = __webpack_require__(5);
+	var _VirtualNodeFs = __webpack_require__(5);
 
-	var _ModuleResolver = __webpack_require__(6);
+	var _ModuleStore = __webpack_require__(6);
 
-	var _ProcessObject = __webpack_require__(7);
+	var _ModuleResolver = __webpack_require__(7);
+
+	var _ProcessObject = __webpack_require__(8);
 
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 	var NodeScope = exports.NodeScope = function () {
 	    function NodeScope() {
-	        var entryCwd = arguments.length <= 0 || arguments[0] === undefined ? '/user' : arguments[0];
+	        var _ref = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
+
+	        var _ref$cwd = _ref.cwd;
+	        var cwd = _ref$cwd === undefined ? "/user" : _ref$cwd;
+	        var _ref$common = _ref.common;
+	        var common = _ref$common === undefined ? "/common" : _ref$common;
+	        var _ref$tmp = _ref.tmp;
+	        var tmp = _ref$tmp === undefined ? "/tmp" : _ref$tmp;
+	        var common_root = arguments.length <= 1 || arguments[1] === undefined ? "/common" : arguments[1];
 
 	        _classCallCheck(this, NodeScope);
 
-	        this.entryCwd = entryCwd;
+	        this.roots = { cwd: cwd, common: common, tmp: tmp };
 	        this.vfs = new _VirtualFs.VirtualFs();
-	        this.vfs.mkdir(this.entryCwd);
+	        this.vfs.root.setItem(new _HttpFs.HttpDirectory(common_root, common.replace(/^\//g, '')));
+	        this.vfs.mkdir('/', this.roots.cwd);
 	        this.moduleResolver = new _ModuleResolver.ModuleResolver(this.vfs);
-	        this.process = new _ProcessObject.ProcessObject(null, this.entryCwd);
+	        this.process = new _ProcessObject.ProcessObject(null, this.roots.cwd);
 	        this.moduleLoader = new _ModuleStore.ModuleLoader(this.vfs, null, this.process);
 	        this.moduleStore = new _ModuleStore.ModuleStore(this.moduleResolver, this.moduleLoader);
 	        this.moduleLoader.store = this.moduleStore;
@@ -96,7 +141,7 @@
 	    _createClass(NodeScope, [{
 	        key: 'eval',
 	        value: function _eval(script) {
-	            this.moduleLoader.runScript(this.entryCwd, script);
+	            this.moduleLoader.runScript(this.roots.cwd, script);
 	        }
 	    }]);
 
@@ -131,23 +176,29 @@
 
 	    this.name = name;
 	    this.type = "directory";
-	    this.items = new Map();
+	    this._items = new Map();
 	  }
 
 	  _createClass(MemoryDirectory, [{
 	    key: "getItem",
 	    value: function getItem(name) {
-	      return this.items.get(name);
+	      var type = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
+
+	      var res = this._items.get(name);
+	      if (type && (!res || res.type !== type)) {
+	        throw new Error("Item type mismatch");
+	      }
+	      return res;
 	    }
 	  }, {
 	    key: "getItems",
 	    value: function getItems() {
-	      return Array.from(this.items.values);
+	      return Array.from(this._items.values());
 	    }
 	  }, {
 	    key: "setItem",
 	    value: function setItem(item) {
-	      this.items.set(item.name, item);
+	      this._items.set(item.name, item);
 	    }
 	  }]);
 
@@ -184,13 +235,27 @@
 	  }, {
 	    key: "getItem",
 	    value: function getItem(cwd, file, checked) {
+	      var type = arguments.length <= 3 || arguments[3] === undefined ? null : arguments[3];
+
 	      var components = this._resolveExplode(cwd, file);
 	      var item = this.root;
-	      components.forEach(function (component) {
-	        item = item && item.getItem(component);
-	      });
-	      if (checked && !item) throw new Error("Fs item  not found: " + file);
+
+	      var comp_len_dec = components.length - 1;
+	      for (var i = 0; i < comp_len_dec; i++) {
+	        var component = components[i];
+	        item = item.getItem(component, "directory");
+	        check();
+	      }
+	      item = item.getItem(components[comp_len_dec], type);
+	      check();
+	      if (type && item && item.type !== type) {
+	        throw new Error("VirtualFs.getItem item type mismatch");
+	      }
 	      return item;
+
+	      function check() {
+	        if (checked && !item) throw new Error("Fs item  not found: " + file);
+	      }
 	    }
 	  }, {
 	    key: "readFileSync",
@@ -221,21 +286,18 @@
 	      return item;
 	    }
 	  }, {
-	    key: "getItemType",
-	    value: function getItemType(cwd, path, type, checked) {
-	      var result = this.getItem(cwd, path, checked);
-	      if (result && result.type !== type) throw new Error("Item is not " + type);
-	      return result;
-	    }
-	  }, {
 	    key: "getDirectory",
-	    value: function getDirectory(cwd, path, checked) {
-	      return this.getItemType(cwd, path, 'directory', checked);
+	    value: function getDirectory(cwd, path) {
+	      var checked = arguments.length <= 2 || arguments[2] === undefined ? true : arguments[2];
+
+	      return this.getItem(cwd, path, checked, 'directory');
 	    }
 	  }, {
 	    key: "getFile",
-	    value: function getFile(cwd, path, checked) {
-	      return this.getItemType(cwd, path, 'file', checked);
+	    value: function getFile(cwd, path) {
+	      var checked = arguments.length <= 2 || arguments[2] === undefined ? true : arguments[2];
+
+	      return this.getItem(cwd, path, checked, 'file');
 	    }
 	  }, {
 	    key: "storeBytes",
@@ -334,7 +396,9 @@
 	function explode(path) {
 	  return {
 	    relative: isRelative(path),
-	    components: path.split(/[\\\/]+/g)
+	    components: path.split(/[\\\/]+/g).filter(function (i) {
+	      return i;
+	    })
 	  };
 	}
 
@@ -360,6 +424,97 @@
 
 /***/ },
 /* 4 */
+/***/ function(module, exports) {
+
+	"use strict";
+
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+	var HttpDirectory = exports.HttpDirectory = function () {
+	  function HttpDirectory(root_uri, name) {
+	    _classCallCheck(this, HttpDirectory);
+
+	    this.name = name;
+	    this.type = "directory";
+	    this._root_uri = root_uri;
+	  }
+
+	  _createClass(HttpDirectory, [{
+	    key: "getItem",
+	    value: function getItem(name) {
+	      var type = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
+
+	      var uri = this._root_uri + "/" + name;
+	      if (type === 'file') return new HttpFile(uri, name);
+	      if (type === 'directory') return new HttpDirectory(uri, name);
+	      throw new Error("HttpDirectory.getItem got unsupported type: " + type);
+	    }
+	  }, {
+	    key: "setItem",
+	    value: function setItem(item) {
+	      throw new Error("Unsupported operation");
+	    }
+	  }, {
+	    key: "getItems",
+	    value: function getItems() {
+	      throw new Error("Unsupported operation");
+	    }
+	  }]);
+
+	  return HttpDirectory;
+	}();
+
+	var HttpFile = exports.HttpFile = function () {
+	  function HttpFile(root_uri, name) {
+	    _classCallCheck(this, HttpFile);
+
+	    this.name = name;
+	    this.type = "file";
+	    this._root_uri = root_uri;
+	    this._contents = null;
+	  }
+
+	  _createClass(HttpFile, [{
+	    key: "_fetch",
+	    value: function _fetch() {
+	      return fetchSync(this._root_uri);
+	    }
+	  }, {
+	    key: "contents",
+	    get: function get() {
+	      return this._contents || (this._contents = this._fetch());
+	    },
+	    set: function set(value) {
+	      throw new Error("Unsupported operation");
+	    }
+	  }]);
+
+	  return HttpFile;
+	}();
+
+	function ascii_to_bytes(ascii) {
+	  var res = new Uint8Array(ascii.length);
+	  for (var i = 0; i < res.length; i++) {
+	    res[i] = ascii.charCodeAt(i);
+	  }
+	  return res;
+	}
+	function fetchSync(path) {
+	  var xhr = new XMLHttpRequest();
+	  xhr.open("GET", path, false);
+	  xhr.send(null);
+	  return ascii_to_bytes(xhr.response);
+	}
+
+
+/***/ },
+/* 5 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -392,6 +547,11 @@
 	    value: function storeText(path, text) {
 	      this._vfs.storeText(this._process.cwd(), path, text);
 	    }
+	  }, {
+	    key: 'loadText',
+	    value: function loadText(path) {
+	      return this._vfs.loadText(this._process.cwd(), path);
+	    }
 	  }]);
 
 	  return VirtualNodeFs;
@@ -399,7 +559,7 @@
 
 
 /***/ },
-/* 5 */
+/* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -410,6 +570,8 @@
 	exports.ModuleStore = exports.ModuleLoader = exports.Module = undefined;
 
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+	exports.createScopedFunction = createScopedFunction;
 
 	var _VirtualPath = __webpack_require__(3);
 
@@ -432,6 +594,10 @@
 	    this.module = { exports: exports };
 	};
 
+	function createScopedFunction(names, script) {
+	    return new (Function.prototype.bind.apply(Function, [null].concat(_toConsumableArray(names), [script])))();
+	}
+
 	var ModuleLoader = exports.ModuleLoader = function () {
 	    function ModuleLoader(vfs, store, process) {
 	        _classCallCheck(this, ModuleLoader);
@@ -445,7 +611,7 @@
 	        key: "evalInScope",
 	        value: function evalInScope(scope, script) {
 	            var names = Object.keys(scope);
-	            new (Function.prototype.bind.apply(Function, [null].concat(_toConsumableArray(names), [script])))().apply(undefined, _toConsumableArray(names.map(function (n) {
+	            createScopedFunction(names, script).apply(undefined, _toConsumableArray(names.map(function (n) {
 	                return scope[n];
 	            })));
 	        }
@@ -524,7 +690,7 @@
 
 
 /***/ },
-/* 6 */
+/* 7 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -610,7 +776,7 @@
 
 
 /***/ },
-/* 7 */
+/* 8 */
 /***/ function(module, exports) {
 
 	"use strict";

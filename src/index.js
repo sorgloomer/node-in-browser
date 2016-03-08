@@ -1,12 +1,13 @@
-import { NodeScope } from './lib/modules/NodeScope';
 
-(new NodeScope()).eval(`
+export const worker = new Worker('bundle-worker.js');
 
-var fs = require('fs');
-fs.storeText('./mymodule.js', "console.log('p mymodule');");
+export function run(code) {
+  worker.postMessage({ command: 'eval', value: code });
+}
 
-console.log('p main #1');
-require('./mymodule');
-console.log('p main #2');
-
+run(`
+  var fs = require('fs');
+  var text = fs.loadText('/common/node_modules/npm/package.json');
+  console.log(text);
 `);
+

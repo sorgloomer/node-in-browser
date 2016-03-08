@@ -4,19 +4,23 @@ export class MemoryDirectory  {
   constructor(name) {
     this.name = name;
     this.type = "directory";
-    this.items = new Map();
+    this._items = new Map();
   }
 
-  getItem(name) {
-    return this.items.get(name);
+  getItem(name, type = null) {
+    const res = this._items.get(name);
+    if (type && (!res || res.type !== type)) {
+      throw new Error("Item type mismatch");
+    }
+    return res;
   }
 
   getItems() {
-    return Array.from(this.items.values);
+    return Array.from(this._items.values());
   }
 
   setItem(item) {
-    this.items.set(item.name, item);
+    this._items.set(item.name, item);
   }
 }
 
@@ -43,14 +47,26 @@ export class VirtualFs {
   _resolveExplode(cwd, file) {
     return VirtualPath.explode(this.resolve(cwd, file)).components;
   }
-  getItem(cwd, file, checked) {
+  getItem(cwd, file, checked, type = null) {
     const components = this._resolveExplode(cwd, file);
     var item = this.root;
-    components.forEach(component => {
-      item = item && item.getItem(component);
-    });
-    if (checked && !item) throw new Error("Fs item  not found: " + file);
+
+    const comp_len_dec = components.length - 1;
+    for (let i = 0; i < comp_len_dec; i++) {
+      const component = components[i];
+      item = item.getItem(component, "directory");
+      check();
+    }
+    item = item.getItem(components[comp_len_dec], type);
+    check();
+    if (type && item && item.type !== type) {
+      throw new Error("VirtualFs.getItem item type mismatch");
+    }
     return item;
+
+    function check() {
+      if (checked && !item) throw new Error("Fs item  not found: " + file);
+    }
   }
 
   readFileSync(cwd, file) {
@@ -79,17 +95,11 @@ export class VirtualFs {
     return item;
   }
 
-  getItemType(cwd, path, type, checked) {
-    const result = this.getItem(cwd, path, checked);
-    if (result && result.type !== type) throw new Error("Item is not " + type);
-    return result;
+  getDirectory(cwd, path, checked = true) {
+    return this.getItem(cwd, path, checked, 'directory');
   }
-
-  getDirectory(cwd, path, checked) {
-    return this.getItemType(cwd, path, 'directory', checked);
-  }
-  getFile(cwd, path, checked) {
-    return this.getItemType(cwd, path, 'file', checked);
+  getFile(cwd, path, checked = true) {
+    return this.getItem(cwd, path, checked, 'file');
   }
 
   storeBytes(cwd, path, content) {

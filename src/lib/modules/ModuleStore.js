@@ -9,6 +9,10 @@ export class Module {
     }
 }
 
+export function createScopedFunction(names, script) {
+    return new Function(...names, script);
+}
+
 export class ModuleLoader {
     constructor(vfs, store, process) {
         this.vfs = vfs;
@@ -18,7 +22,7 @@ export class ModuleLoader {
 
     evalInScope(scope, script) {
         const names = Object.keys(scope);
-        (new Function(...names, script))(...names.map(n => scope[n]));
+        createScopedFunction(names, script)(...names.map(n => scope[n]));
     }
 
     runScript(cwd, script) {
