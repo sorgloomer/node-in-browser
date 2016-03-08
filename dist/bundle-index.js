@@ -46,17 +46,19 @@
 
 	'use strict';
 
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
+	document.addEventListener("DOMContentLoaded", function (_) {
+	  var worker = new Worker('bundle-worker.js');
+
+	  function run(code) {
+	    worker.postMessage({ type: 'eval_lines', token: null, value: code });
+	  }
+
+	  document.getElementById('command-submit').addEventListener('click', function () {
+	    var source_element = document.getElementById('command-input');
+	    var source = source_element.value;
+	    run(source);
+	  }, false);
 	});
-	exports.run = run;
-	var worker = exports.worker = new Worker('bundle-worker.js');
-
-	function run(code) {
-	  worker.postMessage({ command: 'eval', value: code });
-	}
-
-	run('\n  var fs = require(\'fs\');\n  var text = fs.loadText(\'/common/node_modules/npm/package.json\');\n  console.log(text);\n');
 
 
 /***/ }
