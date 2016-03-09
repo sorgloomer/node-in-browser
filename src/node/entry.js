@@ -3,9 +3,9 @@
 self.window = self;
 
 const worker = self;
-const NodeContainer = require('./node-container.js');
+const node_env = require('./node-env.js');
 
-const container = new NodeContainer();
+const container = node_env();
 const commands = commandify(container);
 subscribe(commands);
 

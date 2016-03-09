@@ -1,26 +1,18 @@
 
-var path = require('path');
-var http = require('http-browserify');
-var MemoryFs = require('memory-fs');
-var https = require('https-browserify');
-
 function _is_module_local(module_name) {
     return /^(?:|[a-zA-Z0-9]+:|\.|\.\.)(?:\\|\/|$)/.test(module_name);
 }
 
-function Module(name, exports = {}) {
-    this.name = name;
+function Module(file, exports = {}) {
+    this.name = file;
+    this.file = file;
     this.exports = exports;
 }
 
 class NodeContainer {
-    constructor() {
-        this.fs = new MemoryFs();
-        this.modules = new Map([
-            new Module('fs', this.fs),
-            new Module('http', http),
-            new Module('https', https)
-        ].map(x => [x.name, x]));
+    constructor(fs, modules) {
+        this.fs = fs;
+        this.modules = new Map(modules.map(x => [x.name, x]));
         this.main_module = new Module('/user');
     }
     require(parent_module, module_name) {

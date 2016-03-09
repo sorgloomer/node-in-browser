@@ -17,13 +17,13 @@ module.exports = function(grunt) {
         },
         browserify: {
           node: {
-              files: {
-                  'dist/bundle-worker.js': ['.tmp/babel/node/entry.js']
-              },
               options: {
                   browserifyOptions: {
-                      paths: ['public/common']
+                      paths: ['./public/common/node_modules']
                   }
+              },
+              files: {
+                  'dist/bundle-worker.js': ['.tmp/babel/node/entry.js']
               }
           }
         },
