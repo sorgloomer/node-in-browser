@@ -35,10 +35,10 @@ function subscribe(commands) {
                 type: 'resolve', token, value: res
             });
         } catch (e) {
-            console.error(e);
             worker.postMessage({
                 type: 'reject', token, value: '' + e
             });
+            throw e;
         }
     };
 }
