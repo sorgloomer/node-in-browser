@@ -2,11 +2,11 @@ export class MemoryDirectory  {
     constructor(name) {
         this.name = name;
         this.type = "directory";
-        this._items = new Map();
+        this.items = new Map();
     }
 
     getItem(name, type = null) {
-        const res = this._items.get(name);
+        const res = this.items.get(name);
         if (type && (!res || res.type !== type)) {
             throw new Error("Item type mismatch");
         }
@@ -14,11 +14,14 @@ export class MemoryDirectory  {
     }
 
     getItems() {
-        return Array.from(this._items.values());
+        return Array.from(this.items.values());
     }
 
     setItem(item) {
-        this._items.set(item.name, item);
+        this.items.set(item.name, item);
+    }
+    removeItem(name) {
+        this.items.delete(name);
     }
 }
 

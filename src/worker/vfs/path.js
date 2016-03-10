@@ -60,6 +60,12 @@ export function getFileName(path) {
   return m ? m[1] : path;
 }
 
+export function getFileNameWithoutExt(path) {
+  const fn = getFileName(path);
+  const ext = getExt(fn);
+  return fn.substring(0, fn.length - ext.length);
+}
+
 export function getExt(path) {
   return /\.[^\.\\\/]$/.exec(path) || '';
 }

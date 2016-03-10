@@ -1,9 +1,10 @@
 
+import node_env from "./node-env";
+
 // Hack to make shitty implementations relying on window work....
 self.window = self;
 
 const worker = self;
-const node_env = require('./node-env.js');
 
 const container = node_env();
 const commands = commandify(container);

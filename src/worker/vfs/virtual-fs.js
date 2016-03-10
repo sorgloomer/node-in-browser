@@ -84,6 +84,15 @@ export class VirtualFs {
     return decoder.decode(this.loadBytes(cwd, path));
   }
 
+  removeItem(cwd, path, testFn = null) {
+    const name = Path.getFileName(path);
+    const parent = this.getDirectory(cwd, Path.getParent(path), true);
+    const item = parent.getItem(name);
+    if (!testFn || testFn(item)) {
+      parent.removeItem(name);
+    }
+  }
+
   itemExists(cwd, file) {
     return !!this.getItem(cwd, file, false);
   };

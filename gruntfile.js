@@ -10,9 +10,13 @@ module.exports = function(grunt) {
                 options: {presets: ['es2015']},
                 files: [{expand: true, cwd: 'src/browser', src: '**/*.js', dest: '.tmp/babel/browser'}]
             },
-            node: {
+            commonjs: {
                 options: {presets: ['es2015']},
-                files: [{expand: true, cwd: 'src/node', src: '**/*.js', dest: '.tmp/babel/node'}]
+                files: [{expand: true, cwd: 'src/worker', src: '**/*.js', dest: '.tmp/babel/worker'}]
+            },
+            es6: {
+                options: {presets: ['es2015']},
+                files: [{expand: true, cwd: 'src/es6', src: '**/*.js', dest: '.tmp/babel/es6'}]
             }
         },
         browserify: {

@@ -1,15 +1,17 @@
 
+import * as Path from "../vfs/path";
+
 function _is_module_local(module_name) {
     return /^(?:|[a-zA-Z0-9]+:|\.|\.\.)(?:\\|\/|$)/.test(module_name);
 }
 
-function Module(file, exports = {}) {
+export function Module(file, exports = {}) {
     this.name = file;
     this.file = file;
     this.exports = exports;
 }
 
-class NodeContainer {
+export class NodeContainer {
     constructor(fs, modules) {
         this.fs = fs;
         this.modules = new Map(modules.map(x => [x.name, x]));
@@ -34,9 +36,9 @@ class NodeContainer {
         }
     }
     _require_module_local(parent_module, module_name) {
-        const file_name = path.resolve(parent_module.name, '..', module_name);
+        const file_name = Path.resolve(parent_module.name, '..', module_name);
         var result = this._attempt_load_file(module_name, file_name);
-        if (!result && !path.extname(file_name)) {
+        if (!result && !Path.getExt(file_name)) {
             result = this._attempt_load_file(module_name, file_name + '.js');
         }
         return result;
@@ -44,15 +46,15 @@ class NodeContainer {
     _require_module_node_single(file_name) {
         var result = this._attempt_load_file(file_name);
         if (result) return result;
-        if (!path.extname(file_name)) {
+        if (!Path.getExt(file_name)) {
             result = this._attempt_load_file(file_name + '.js');
             if (result) return result;
-            result = this._attempt_load_file(path.join(file_name, 'index.js'));
+            result = this._attempt_load_file(Path.combine(file_name, 'index.js'));
             if (result) return result;
             try {
-                const source = this.fs.readFileSync(path.join(file_name, 'package.json'), { encoding: "utf-8" });
+                const source = this.fs.readFileSync(Path.combine(file_name, 'package.json'), { encoding: "utf-8" });
                 const package_data = JSON.parse(source);
-                result = this._attempt_load_file(path.join(file_name, package_data.index)); // TODO: package.index?
+                result = this._attempt_load_file(Path.combine(file_name, package_data.index)); // TODO: package.index?
                 if (result) return result;
                 return module;
             } catch (e) {
@@ -65,10 +67,10 @@ class NodeContainer {
         if (temp) return temp;
         var search = parent_module.name;
         for (;;) {
-            const temp_search = path.dirname(search);
+            const temp_search = Path.getParent(search);
             if (temp_search === search) return null;
             search = temp_search;
-            const file_candidate = path.join(search, 'node_modules', module_name);
+            const file_candidate = Path.combine(search, 'node_modules', module_name);
             temp = this._require_module_node_single(file_candidate);
             if (temp) return temp;
         }
@@ -100,6 +102,3 @@ class NodeContainer {
         this.eval_lines("return " + code);
     }
 }
-
-NodeContainer.Module = Module;
-module.exports = NodeContainer;

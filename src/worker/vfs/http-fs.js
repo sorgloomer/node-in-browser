@@ -36,6 +36,9 @@ export class HttpDirectory {
   setItem(item) {
     this.items.set(item.name, item);
   }
+  removeItem(name) {
+    this.items.delete(name);
+  }
   getItems() {
     return Array.from(this.items.values());
   }

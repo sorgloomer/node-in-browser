@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "errno": "^0.1.4",
+    "readable-stream": "^2.0.5"
+  }
+}
