@@ -106,14 +106,14 @@ function Module(name, directory) {
 }
 
 var NodeContainer = exports.NodeContainer = function () {
-    function NodeContainer(fs, modules) {
+    function NodeContainer(fs, modules, cwd) {
         _classCallCheck(this, NodeContainer);
 
         this.fs = fs;
         this.modules = new Map(modules.map(function (x) {
             return [x.name, x];
         }));
-        this.main_module = new Module('user', '/user');
+        this.main_module = new Module('main', cwd);
     }
 
     _createClass(NodeContainer, [{
@@ -128,12 +128,14 @@ var NodeContainer = exports.NodeContainer = function () {
         value: function _attempt_load_file(parent_module, module_name, file_name, module_id) {
             var temp = this.modules.get(module_id);
             if (temp) return temp;
-            var source = null;
-            try {
-                source = this.fs.readFileSync(file_name, "utf-8");
-            } catch (e) {
+            if (!this.fs.existsSync(file_name)) {
                 return null;
             }
+            var stat = this.fs.statSync(file_name);
+            if (!stat.isFile()) {
+                return null;
+            }
+            var source = this.fs.readFileSync(file_name, "utf-8");
             var module = new Module(module_id, Path.getParent(file_name));
             module._require_path = module_name + " <- " + parent_module._require_path;
             this.modules.set(module_id, module);
@@ -141,7 +143,7 @@ var NodeContainer = exports.NodeContainer = function () {
                 this._eval_module(module, source);
             } catch (e) {
                 this.modules.delete(module_id);
-                throw e;
+                throw new Error("Error while initializing module: " + module_id, e);
             }
             return module;
         }
@@ -163,12 +165,15 @@ var NodeContainer = exports.NodeContainer = function () {
             if (result) return result;
             result = this._attempt_load_file(parent_module, module_name, Path.resolve(file_name, 'index.js'), file_name);
             if (result) return result;
-            var source = null;
-            try {
-                source = this.fs.readFileSync(Path.resolve(file_name, 'package.json'), "utf-8");
-            } catch (e) {
+            var json_file_name = Path.resolve(file_name, 'package.json');
+            if (!this.fs.existsSync(json_file_name)) {
                 return null;
             }
+            var stat = this.fs.statSync(json_file_name);
+            if (!stat.isFile()) {
+                return null;
+            }
+            var source = this.fs.readFileSync(json_file_name, "utf-8");
             var package_data = JSON.parse(source);
             result = this._attempt_load_file(parent_module, module_name, Path.resolve(file_name, package_data.main), file_name);
             if (result) return result;
@@ -236,24 +241,6 @@ Object.defineProperty(exports, "__esModule", {
 });
 
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
-
-exports.default = function () {
-    // process.chdir("/user");
-    var fs = new _nodeVfs.VirtualNodeFs(process);
-    var common = "node_modules";
-    var httpDir = new _httpFs.HttpDirectory("/" + common, common);
-    fs._vfs.root.setItem(httpDir);
-
-    var moduleList = [["assert", _assert2.default], ["buffer", _buffer2.default], ["console", _console2.default], ["constants", _constants2.default], ["crypto", _crypto2.default], ["domain", _domain2.default], ["events", _events2.default], ["http", _http2.default], ["https", _https2.default], ["os", _os2.default], ["path", _path2.default], ["punycode", _punycode2.default], ["querystring", _querystring2.default], ["stream", _stream2.default], ["string_decoder", _string_decoder2.default], ["timers", _timers2.default], ["tty", _tty2.default], ["url", _url2.default], ["util", _util2.default], ["vm", _vm2.default], ["zlib", _zlib2.default], ["child_process", _child_process2.default], ['fs', fs]].map(function (_ref) {
-        var _ref2 = _slicedToArray(_ref, 2);
-
-        var name = _ref2[0];
-        var exp = _ref2[1];
-        return new _nodeContainer.Module(name, null, exp);
-    });
-
-    return new _nodeContainer.NodeContainer(fs, moduleList);
-};
 
 var _assert = require("assert");
 
@@ -358,23 +345,28 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 // Hack browserify's objects into global scope
-var _process = process;
 self.global = self;
-self.process = _process;
+self.process = process;
 self.Buffer = Buffer;
 
-// extend process with properties missing from the browserify process
-_process.stdin = new _stream2.default.Readable();
-_process.stdout = ostream("stdout:");
-_process.stderr = ostream("stderr:");
-_process.argv = ["node/node"];
-_process._cwd = "/user/";
-_process.cwd = function () {
-    return _process._cwd;
-};
-_process.chdir = function (d) {
-    _process._cwd = Path.resolve(_process._cwd, d);
-};
+var INITIAL_FOLDER_NAME = "home";
+var INITIAL_FOLDER = "/" + INITIAL_FOLDER_NAME;
+var EXECUTABLE = "/bin/node";
+
+function patch_process() {
+    var _process = process;
+    _process.stdin = new _stream2.default.Readable();
+    _process.stdout = ostream("stdout:");
+    _process.stderr = ostream("stderr:");
+    _process.argv = [EXECUTABLE];
+    _process._cwd = INITIAL_FOLDER;
+    _process.cwd = function () {
+        return _process._cwd;
+    };
+    _process.chdir = function (d) {
+        _process._cwd = Path.resolve(_process._cwd, d);
+    };
+}
 
 function ostream(prefix) {
     var result = new _stream2.default.Writable();
@@ -384,7 +376,26 @@ function ostream(prefix) {
     return result;
 }
 
-;
+function initialize() {
+    patch_process();
+
+    var fs = new _nodeVfs.VirtualNodeFs(process);
+    var httpDir = new _httpFs.HttpDirectory("/node_modules", "node_modules");
+    fs._vfs.root.setItem(httpDir);
+    fs._vfs.createDirectory(fs._vfs.root, INITIAL_FOLDER_NAME);
+
+    var moduleList = [["assert", _assert2.default], ["buffer", _buffer2.default], ["console", _console2.default], ["constants", _constants2.default], ["crypto", _crypto2.default], ["domain", _domain2.default], ["events", _events2.default], ["http", _http2.default], ["https", _https2.default], ["os", _os2.default], ["path", _path2.default], ["punycode", _punycode2.default], ["querystring", _querystring2.default], ["stream", _stream2.default], ["string_decoder", _string_decoder2.default], ["timers", _timers2.default], ["tty", _tty2.default], ["url", _url2.default], ["util", _util2.default], ["vm", _vm2.default], ["zlib", _zlib2.default], ["child_process", _child_process2.default], ['fs', fs]].map(function (_ref) {
+        var _ref2 = _slicedToArray(_ref, 2);
+
+        var name = _ref2[0];
+        var exp = _ref2[1];
+        return new _nodeContainer.Module(name, null, exp);
+    });
+
+    return new _nodeContainer.NodeContainer(fs, moduleList, INITIAL_FOLDER);
+}
+
+exports.default = initialize;
 
 }).call(this,require('_process'),require("buffer").Buffer)
 },{"../modules/child_process":1,"../vfs/http-fs":6,"../vfs/node-vfs":8,"../vfs/path":9,"./node-container":3,"_process":59,"assert":11,"buffer":18,"console":21,"constants":22,"crypto":27,"domain":32,"events":16,"http":81,"https":36,"os":44,"path":56,"punycode":61,"querystring":64,"stream":17,"string_decoder":85,"timers":86,"tty":87,"url":88,"util":91,"vm":92,"zlib":15}],5:[function(require,module,exports){
@@ -662,7 +673,7 @@ function fn_false() {
   return false;
 }
 function fn_true() {
-  return false;
+  return true;
 }
 
 VirtualNodeFs_prototype.existsSync = function existsSync(path) {
@@ -12945,7 +12956,10 @@ var EElistenerCount = function(emitter, type) {
 var Stream;
 (function (){try{
   Stream = require('st' + 'ream');
-}catch(_){}finally{
+}catch(_){
+  console.log("EventEmitter - #1");
+  console.log(_);
+}finally{
   if (!Stream)
     Stream = require('events').EventEmitter;
 }}())
@@ -13888,7 +13902,7 @@ function indexOf (xs, x) {
 }
 
 }).call(this,require('_process'))
-},{"./_stream_duplex":66,"_process":59,"buffer":18,"core-util-is":23,"events":16,"inherits":39,"isarray":41,"process-nextick-args":58,"string_decoder/":85,"util":13}],69:[function(require,module,exports){
+},{"stream":17,"./_stream_duplex":66,"_process":59,"buffer":18,"core-util-is":23,"events":16,"inherits":39,"isarray":41,"process-nextick-args":58,"string_decoder/":85,"util":13}],69:[function(require,module,exports){
 // a transform stream is a readable/writable stream where you do
 // something with the data.  Sometimes it's called a "filter",
 // but that's not a great name for it, since that implies a thing where
@@ -14126,7 +14140,11 @@ var internalUtil = {
 var Stream;
 (function (){try{
   Stream = require('st' + 'ream');
-}catch(_){}finally{
+}catch(_){
+  console.log("EventEmitter - #2");
+  console.log(_);
+}finally{
+
   if (!Stream)
     Stream = require('events').EventEmitter;
 }}())
@@ -14618,14 +14636,18 @@ function endWritable(stream, state, cb) {
   state.ended = true;
 }
 
-},{"./_stream_duplex":66,"buffer":18,"core-util-is":23,"events":16,"inherits":39,"process-nextick-args":58,"util-deprecate":89}],71:[function(require,module,exports){
+},{"stream":17, "./_stream_duplex":66,"buffer":18,"core-util-is":23,"events":16,"inherits":39,"process-nextick-args":58,"util-deprecate":89}],71:[function(require,module,exports){
 module.exports = require("./lib/_stream_passthrough.js")
 
 },{"./lib/_stream_passthrough.js":67}],72:[function(require,module,exports){
 var Stream = (function (){
   try {
     return require('st' + 'ream'); // hack to fix a circular dependency issue when used with browserify
-  } catch(_){}
+  } catch(_){
+    console.log("EventEmitter - #3");
+    console.log(_);
+
+  }
 }());
 exports = module.exports = require('./lib/_stream_readable.js');
 exports.Stream = Stream || exports;
@@ -14635,7 +14657,7 @@ exports.Duplex = require('./lib/_stream_duplex.js');
 exports.Transform = require('./lib/_stream_transform.js');
 exports.PassThrough = require('./lib/_stream_passthrough.js');
 
-},{"./lib/_stream_duplex.js":66,"./lib/_stream_passthrough.js":67,"./lib/_stream_readable.js":68,"./lib/_stream_transform.js":69,"./lib/_stream_writable.js":70}],73:[function(require,module,exports){
+},{"stream":17, "./lib/_stream_duplex.js":66,"./lib/_stream_passthrough.js":67,"./lib/_stream_readable.js":68,"./lib/_stream_transform.js":69,"./lib/_stream_writable.js":70}],73:[function(require,module,exports){
 module.exports = require("./lib/_stream_transform.js")
 
 },{"./lib/_stream_transform.js":69}],74:[function(require,module,exports){

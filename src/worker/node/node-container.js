@@ -14,10 +14,10 @@ export function Module(name, directory, exports = {}) {
 }
 
 export class NodeContainer {
-    constructor(fs, modules) {
+    constructor(fs, modules, cwd) {
         this.fs = fs;
         this.modules = new Map(modules.map(x => [x.name, x]));
-        this.main_module = new Module('user', '/user');
+        this.main_module = new Module('main', cwd);
     }
     require(parent_module, module_name) {
         const module = this.require_module(parent_module, module_name);
@@ -28,12 +28,14 @@ export class NodeContainer {
     _attempt_load_file(parent_module, module_name, file_name, module_id) {
         var temp = this.modules.get(module_id);
         if (temp) return temp;
-        var source = null;
-        try {
-            source = this.fs.readFileSync(file_name, "utf-8" );
-        } catch (e) {
+        if (!this.fs.existsSync(file_name)) {
             return null;
         }
+        const stat = this.fs.statSync(file_name);
+        if (!stat.isFile()) {
+            return null;
+        }
+        const source = this.fs.readFileSync(file_name, "utf-8");
         const module = new Module(module_id, Path.getParent(file_name));
         module._require_path = module_name + " <- " + parent_module._require_path;
         this.modules.set(module_id, module);
@@ -41,7 +43,7 @@ export class NodeContainer {
             this._eval_module(module, source);
         } catch(e) {
             this.modules.delete(module_id);
-            throw e;
+            throw new Error("Error while initializing module: " + module_id, e);
         }
         return module;
     }
@@ -59,12 +61,15 @@ export class NodeContainer {
         if (result) return result;
         result = this._attempt_load_file(parent_module, module_name, Path.resolve(file_name, 'index.js'), file_name);
         if (result) return result;
-        var source = null;
-        try {
-            source = this.fs.readFileSync(Path.resolve(file_name, 'package.json'), "utf-8");
-        } catch (e) {
+        const json_file_name = Path.resolve(file_name, 'package.json');
+        if (!this.fs.existsSync(json_file_name)) {
             return null;
         }
+        const stat = this.fs.statSync(json_file_name);
+        if (!stat.isFile()) {
+            return null;
+        }
+        const source = this.fs.readFileSync(json_file_name, "utf-8");
         const package_data = JSON.parse(source);
         result = this._attempt_load_file(parent_module, module_name, Path.resolve(file_name, package_data.main), file_name);
         if (result) return result;

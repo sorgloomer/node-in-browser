@@ -47,7 +47,7 @@ VirtualNodeFs_prototype.ReadStream = stream.Readable;
 VirtualNodeFs_prototype.WriteStream = stream.Writable;
 
 function fn_false() { return false; }
-function fn_true() { return false; }
+function fn_true() { return true; }
 
 VirtualNodeFs_prototype.existsSync = function existsSync(path) {
   return this._vfs.itemExists(this._process.cwd(), path);
