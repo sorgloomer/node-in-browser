@@ -6,11 +6,11 @@ self.window = self;
 
 const worker = self;
 
-const container = node_env();
-const commands = commandify(container);
+var container = node_env();
+const commands = commandify();
 subscribe(commands);
 
-function commandify(container) {
+function commandify() {
     return {
         eval(value) {
             return container.eval(value)
@@ -20,6 +20,9 @@ function commandify(container) {
         },
         ping() {
             return 'pong'
+        },
+        reset() {
+            container = node_env();
         }
     };
 }

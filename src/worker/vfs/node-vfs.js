@@ -1,15 +1,19 @@
 import { VirtualFs } from './virtual-fs';
 import * as Path from './path';
 
-import Buffer from 'buffer';
+import { Buffer } from 'buffer';
 import errors from 'errno';
 import stream from 'readable-stream';
 
+
+
 function VirtualFileSystemError(err, path) {
   Error.call(this, err.description);
+  /*
   if (Error.captureStackTrace) {
-    Error.captureStackTrace(this, arguments.callee);
+    Error.captureStackTrace(this, VirtualFileSystemError);
   }
+  */
   this.code = err.code;
   this.errno = err.errno;
   this.path = path;
@@ -26,6 +30,9 @@ export function VirtualNodeFs(process, vfs = new VirtualFs()) {
 }
 
 const VirtualNodeFs_prototype = VirtualNodeFs.prototype;
+
+VirtualNodeFs_prototype.ReadStream = stream.Readable;
+VirtualNodeFs_prototype.WriteStream = stream.Writable;
 
 function fn_false() { return false; }
 function fn_true() { return false; }

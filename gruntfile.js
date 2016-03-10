@@ -1,4 +1,6 @@
 module.exports = function(grunt) {
+    const path = require("path");
+
     require('load-grunt-tasks')(grunt);
     grunt.initConfig({
         clean: {
@@ -10,24 +12,20 @@ module.exports = function(grunt) {
                 options: {presets: ['es2015']},
                 files: [{expand: true, cwd: 'src/browser', src: '**/*.js', dest: '.tmp/babel/browser'}]
             },
-            commonjs: {
+            worker: {
                 options: {presets: ['es2015']},
                 files: [{expand: true, cwd: 'src/worker', src: '**/*.js', dest: '.tmp/babel/worker'}]
-            },
-            es6: {
-                options: {presets: ['es2015']},
-                files: [{expand: true, cwd: 'src/es6', src: '**/*.js', dest: '.tmp/babel/es6'}]
             }
         },
         browserify: {
           node: {
               options: {
                   browserifyOptions: {
-                      paths: ['./public/common/node_modules']
+                      paths: ['./thirdparty/node_modules']
                   }
               },
               files: {
-                  'dist/bundle-worker.js': ['.tmp/babel/node/entry.js']
+                  'dist/bundle-worker.js': ['.tmp/babel/worker/node/entry.js']
               }
           }
         },
@@ -51,10 +49,35 @@ module.exports = function(grunt) {
             dist: {
                 options: {
                     port: 9001,
-                    base: ["dist"],
+                    base: ["./public" ,"./dist"],
                     keepalive: true
                 }
             }
+        }
+    });
+
+    grunt.registerTask('annotate', function() {
+        const META_FILE = "dir-listing";
+
+        traverse("./public/node_modules");
+        function traverse(parentPath) {
+            const entries = grunt.file.expand(parentPath + "/*");
+            entries.filter(f => filename(f) !== META_FILE);
+            const files = entries.filter(f => grunt.file.isFile(f));
+            const dirs = entries.filter(f => grunt.file.isDir(f));
+            const meta = {
+                files: files.map(filename),
+                directories: dirs.map(filename)
+            };
+            grunt.file.write(
+                path.join(parentPath, META_FILE),
+                JSON.stringify(meta, null, 2),
+                { encoding: "utf-8" }
+            );
+            dirs.forEach(traverse);
+        }
+        function filename(x) {
+            return path.basename(x);
         }
     });
 

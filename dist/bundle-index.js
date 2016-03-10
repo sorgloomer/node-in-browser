@@ -58,6 +58,10 @@
 	    var source = source_element.value;
 	    run(source);
 	  }, false);
+
+	  document.getElementById('command-reset').addEventListener('click', function () {
+	    worker.postMessage({ type: 'reset', token: null, value: null });
+	  }, false);
 	});
 
 

@@ -1,6 +1,6 @@
 import { fetchBytesSync, fetchJsonSync } from './fetch-sync';
 
-const DIR_SUFFIX = "/.dir-data";
+const DIR_SUFFIX = "/dir-listing";
 
 function fetch_dir(root) {
   const items = new Map();

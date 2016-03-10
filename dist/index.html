@@ -17,11 +17,15 @@
 <body>
 
 <textarea id="command-input">
-  var fs = require('fs');
-  var text = fs.loadText('/common/node_modules/npm/package.json');
-  console.log(text);
+
+    // var fs = require('fs');
+    // var text = fs.readFileSync('/node_modules/npm/package.json', "utf-8");
+    // console.log(text);
+
+    require('npm');
 </textarea>
 <button id="command-submit">run</button>
+<button id="command-reset">reset</button>
 
 <script src="bundle-index.js"></script>
 </body>

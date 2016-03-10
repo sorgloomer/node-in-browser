@@ -32,7 +32,7 @@ export function isAbsolute(path) {
 }
 
 export function resolve(path, ...parts) {
-  return parts.reduce((path, part) => isAbsolute(part) ? part : normalize(path + '/' + part),  normalize(path));
+  return parts.reduce((path, part) => normalize(isAbsolute(part) ? part : path + '/' + part),  normalize(path));
 }
 
 export function explode(path) {
@@ -51,7 +51,7 @@ export function isGlobal(path) {
 }
 
 export function getParent(path) {
-  const m = /^(.*)[\\\/][^\\\/]+[\\\/]*$/.exec(path);
+  const m = /^(.*[\\\/])[^\\\/]+[\\\/]*$/.exec(path);
   return m ? m[1] : path;
 }
 

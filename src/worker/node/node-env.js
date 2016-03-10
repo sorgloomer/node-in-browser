@@ -7,18 +7,19 @@ import https from "https";
 import { VirtualNodeFs } from "../vfs/node-vfs";
 import { HttpDirectory } from "../vfs/http-fs";
 
-import { NodeContainer  }from "./node-container";
+import { NodeContainer, Module  }from "./node-container";
 
 export default function() {
-    const fs = new VirtualNodeFs();
+    // process.chdir("/user");
+    const fs = new VirtualNodeFs(process);
     const common = "node_modules";
-    const httpDir = new HttpDirectory("/common/" + common, common);
+    const httpDir = new HttpDirectory("/" + common, common);
     fs._vfs.root.setItem(httpDir);
     return new NodeContainer(fs, [
-        new Module('fs', fs),
-        new Module('buffer', buffer),
-        new Module('path', path),
-        new Module('http', http),
-        new Module('https', https)
+        new Module('fs', null, fs),
+        new Module('buffer', null, buffer),
+        new Module('path', null, path),
+        new Module('http', null, http),
+        new Module('https', null, https)
     ]);
 };
