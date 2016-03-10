@@ -347,32 +347,47 @@ var _nodeVfs = require("../vfs/node-vfs");
 
 var _httpFs = require("../vfs/http-fs");
 
+var _path3 = require("../vfs/path");
+
+var Path = _interopRequireWildcard(_path3);
+
 var _nodeContainer = require("./node-container");
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 // Hack browserify's objects into global scope
+var _process = process;
 self.global = self;
-self.process = process;
+self.process = _process;
 self.Buffer = Buffer;
 
 // extend process with properties missing from the browserify process
-process.stdin = new _stream2.default.Readable();
-process.stdout = ostream("stdout:");
-process.stderr = ostream("stderr:");
-process.argv = ["node/node"];
+_process.stdin = new _stream2.default.Readable();
+_process.stdout = ostream("stdout:");
+_process.stderr = ostream("stderr:");
+_process.argv = ["node/node"];
+_process._cwd = "/user/";
+_process.cwd = function () {
+    return _process._cwd;
+};
+_process.chdir = function (d) {
+    _process._cwd = Path.resolve(_process._cwd, d);
+};
+
 function ostream(prefix) {
-    var stream = new stream.Writable();
-    stream._write = function (chunk, enncoding) {
+    var result = new _stream2.default.Writable();
+    result._write = function (chunk, enncoding) {
         _console2.default.log(prefix + chunk.toString(enncoding || 'utf-8'));
     };
-    return stream;
+    return result;
 }
 
 ;
 
 }).call(this,require('_process'),require("buffer").Buffer)
-},{"../modules/child_process":1,"../vfs/http-fs":6,"../vfs/node-vfs":8,"./node-container":3,"_process":139,"assert":25,"buffer":57,"console":61,"constants":62,"crypto":69,"domain":81,"events":101,"http":172,"https":110,"os":120,"path":136,"punycode":147,"querystring":150,"stream":171,"string_decoder":176,"timers":177,"tty":178,"url":179,"util":182,"vm":183,"zlib":55}],5:[function(require,module,exports){
+},{"../modules/child_process":1,"../vfs/http-fs":6,"../vfs/node-vfs":8,"../vfs/path":9,"./node-container":3,"_process":139,"assert":25,"buffer":57,"console":61,"constants":62,"crypto":69,"domain":81,"events":101,"http":172,"https":110,"os":120,"path":136,"punycode":147,"querystring":150,"stream":171,"string_decoder":176,"timers":177,"tty":178,"url":179,"util":182,"vm":183,"zlib":55}],5:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {

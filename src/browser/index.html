@@ -22,14 +22,15 @@
     // var text = fs.readFileSync('/node_modules/npm/package.json', "utf-8");
     // console.log(text);
 
-    console.log("npm requiring");
+    console.log("npm requiring...");
     const npm = require('npm');
-    console.log("npm required");
+    console.log("npm required, npm load...");
     npm.load({}, () => {
+      console.log("npm loaded, installing babel");
       npm.commands.install("babel");
       console.log("babel installed");
     });
-    console.log("npm loaded");
+    console.log("npm load fired");
 </textarea>
 <button id="command-submit">run</button>
 <button id="command-reset">reset</button>

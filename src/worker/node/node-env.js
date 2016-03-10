@@ -25,22 +25,30 @@ import child_process from "../modules/child_process";
 
 import { VirtualNodeFs } from "../vfs/node-vfs";
 import { HttpDirectory } from "../vfs/http-fs";
+import * as Path from "../vfs/path";
 import { NodeContainer, Module  }from "./node-container";
 
 // Hack browserify's objects into global scope
+const _process = process;
 self.global = self;
-self.process = process;
+self.process = _process;
 self.Buffer = Buffer;
 
 // extend process with properties missing from the browserify process
-process.stdin = new stream.Readable();
-process.stdout = ostream("stdout:");
-process.stderr = ostream("stderr:");
-process.argv = ["node/node"];
+_process.stdin = new stream.Readable();
+_process.stdout = ostream("stdout:");
+_process.stderr = ostream("stderr:");
+_process.argv = ["node/node"];
+_process._cwd = "/user/";
+_process.cwd = () => _process._cwd;
+_process.chdir = d => { _process._cwd = Path.resolve(_process._cwd, d); };
+
 function ostream(prefix) {
-    var stream = new stream.Writable();
-    stream._write = (chunk, enncoding) => { console.log(prefix + chunk.toString(enncoding || 'utf-8')); };
-    return stream;
+    var result = new stream.Writable();
+    result._write = function(chunk, enncoding) {
+        console.log(prefix + chunk.toString(enncoding || 'utf-8'));
+    };
+    return result;
 }
 
 
