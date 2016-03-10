@@ -5,12 +5,9 @@ export class MemoryDirectory  {
         this.items = new Map();
     }
 
-    getItem(name, type = null) {
-        const res = this.items.get(name);
-        if (type && (!res || res.type !== type)) {
-            throw new Error("Item type mismatch");
-        }
-        return res;
+    getItem(name, type) {
+        if (type) console.warn("type used at MemoryDirectory.getItem");
+        return this.items.get(name) || null;
     }
 
     getItems() {
