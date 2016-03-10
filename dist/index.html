@@ -25,7 +25,8 @@
     console.log("npm requiring...");
     const npm = require('npm');
     console.log("npm required, npm load...");
-    npm.load({}, () => {
+    npm.load({}, e => {
+      if (e) return console.error(e);
       console.log("npm loaded, installing babel");
       npm.commands.install("babel");
       console.log("babel installed");
