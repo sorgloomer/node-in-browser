@@ -83,7 +83,7 @@ export class NodeContainer {
     _require_module_node(parent_module, module_name) {
         if (this.redirects && Object.prototype.hasOwnProperty.call(this.redirects, module_name)) {
             const redirect = this.redirects[module_name];
-            return this.require_module(parent_module, redirect);
+            return this._require_module_node_single(parent_module, module_name, redirect);
         } else {
             var temp = this.modules.get(module_name);
             if (temp) return temp;
