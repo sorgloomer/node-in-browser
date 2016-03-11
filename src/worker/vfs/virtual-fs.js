@@ -19,13 +19,15 @@ export class VirtualFs {
     var item = this.root;
 
     const comp_len_dec = components.length - 1;
-    for (let i = 0; i < comp_len_dec; i++) {
-      const component = components[i];
-      item = item.getItem(component);
+    if (comp_len_dec >= 0) {
+      for (let i = 0; i < comp_len_dec; i++) {
+        const component = components[i];
+        item = item && item.getItem(component);
+        check();
+      }
+      item = item && item.getItem(components[comp_len_dec]);
       check();
     }
-    item = item.getItem(components[comp_len_dec]);
-    check();
     if (type && item && item.type !== type) {
       throw new Error("VirtualFs.getItem item type mismatch");
     }
@@ -102,5 +104,17 @@ export class VirtualFs {
   }
   isFile(cwd, path) {
     return this.isItemType(cwd, path, 'file');
+  }
+
+  createDirectory(parent, name) {
+    name = String(name);
+    const item = parent.getItem(name);
+    if (item) {
+      if (item.type !== 'directory') {
+        throw new Error("A file with that name already exists");
+      }
+    } else {
+      parent.setItem(new MemoryDirectory(name));
+    }
   }
 }

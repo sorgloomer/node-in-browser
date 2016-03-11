@@ -27,6 +27,18 @@ VirtualFileSystemError.prototype = VirtualFileSystemError_prototype;
 export function VirtualNodeFs(process, vfs = new VirtualFs()) {
   this._vfs = vfs;
   this._process = process;
+
+  [
+    "ReadStream", "WriteStream", "join", "normalize"
+  ].forEach(v => { this[v] = this[v]; });
+  [
+    "existsSync" ,"statSync", "readFileSync", "readdirSync", "mkdirpSync","mkdirSync", "rmdirSync", "unlinkSync", "readlinkSync", "writeFileSync",
+    "createReadStream", "createWriteStream",
+
+
+    "stat", "readdir", "mkdirp", "mkdir", "rmdir", "unlink", "readlink",
+    "exists", "readFile", "writeFile"
+  ].forEach(k => { this[k] = this[k].bind(this); });
 }
 
 const VirtualNodeFs_prototype = VirtualNodeFs.prototype;
@@ -35,7 +47,7 @@ VirtualNodeFs_prototype.ReadStream = stream.Readable;
 VirtualNodeFs_prototype.WriteStream = stream.Writable;
 
 function fn_false() { return false; }
-function fn_true() { return false; }
+function fn_true() { return true; }
 
 VirtualNodeFs_prototype.existsSync = function existsSync(path) {
   return this._vfs.itemExists(this._process.cwd(), path);
@@ -101,16 +113,29 @@ VirtualNodeFs_prototype.mkdirpSync = function mkdirpSync(path) {
 };
 
 VirtualNodeFs_prototype.mkdirSync = function mkdirSync(path) {
+  var parent = null;
+  const parent_path = Path.getParent(path);
+  const dirname = Path.getFileName(path);
   var item = null;
-  try {
-    item = this._vfs.getItem(this._process.cwd(), Path.getParent(path), true);
-  } catch(_) {
-    throw new VirtualFileSystemError(errors.code.ENOENT, path);
-  }
-  if (item.type === 'directory') {
+  if (parent_path === path) {
+    // it's the "/" root dir
     throw new VirtualFileSystemError(errors.code.EEXIST, path);
   } else {
-    throw new VirtualFileSystemError(errors.code.ENOTDIR, path);
+    try {
+      parent = this._vfs.getItem(this._process.cwd(), parent_path, true);
+    } catch(_) {
+      throw new VirtualFileSystemError(errors.code.ENOENT, path);
+    }
+    item = parent.getItem(dirname);
+    if (item) {
+      if (item.type === 'directory') {
+        throw new VirtualFileSystemError(errors.code.EEXIST, path);
+      } else {
+        throw new VirtualFileSystemError(errors.code.ENOTDIR, path);
+      }
+    } else {
+      this._vfs.createDirectory(parent, dirname);
+    }
   }
 };
 

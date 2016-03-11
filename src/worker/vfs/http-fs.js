@@ -31,7 +31,7 @@ export class HttpDirectory {
   }
 
   getItem(name) {
-    return this.items.get(name);
+    return this.items.get(name) || null;
   }
   setItem(item) {
     this.items.set(item.name, item);

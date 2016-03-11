@@ -29,19 +29,26 @@ import * as Path from "../vfs/path";
 import { NodeContainer, Module  }from "./node-container";
 
 // Hack browserify's objects into global scope
-const _process = process;
 self.global = self;
-self.process = _process;
+self.process = process;
 self.Buffer = Buffer;
 
-// extend process with properties missing from the browserify process
-_process.stdin = new stream.Readable();
-_process.stdout = ostream("stdout:");
-_process.stderr = ostream("stderr:");
-_process.argv = ["node/node"];
-_process._cwd = "/user/";
-_process.cwd = () => _process._cwd;
-_process.chdir = d => { _process._cwd = Path.resolve(_process._cwd, d); };
+const INITIAL_FOLDER_NAME = "home";
+const INITIAL_FOLDER = "/" + INITIAL_FOLDER_NAME;
+const EXECUTABLE = "/bin/node";
+
+function patch_process() {
+    const _process = process;
+    _process.stdin = new stream.Readable();
+    _process.stdout = ostream("stdout:");
+    _process.stderr = ostream("stderr:");
+    _process.argv = [EXECUTABLE];
+    _process._cwd = INITIAL_FOLDER;
+    _process.cwd = () => _process._cwd;
+    _process.chdir = d => {
+        _process._cwd = Path.resolve(_process._cwd, d);
+    };
+}
 
 function ostream(prefix) {
     var result = new stream.Writable();
@@ -51,13 +58,13 @@ function ostream(prefix) {
     return result;
 }
 
+function initialize() {
+    patch_process();
 
-export default function() {
-    // process.chdir("/user");
     const fs = new VirtualNodeFs(process);
-    const common = "node_modules";
-    const httpDir = new HttpDirectory("/" + common, common);
+    const httpDir = new HttpDirectory("/node_modules", "node_modules");
     fs._vfs.root.setItem(httpDir);
+    fs._vfs.createDirectory(fs._vfs.root, INITIAL_FOLDER_NAME);
 
     const moduleList = [
         ["assert", assert],
@@ -87,5 +94,7 @@ export default function() {
         ['fs', fs]
     ].map(([name, exp]) => new Module(name, null, exp));
 
-    return new NodeContainer(fs, moduleList);
-};
+    return new NodeContainer(fs, moduleList, INITIAL_FOLDER);
+}
+
+export default initialize;
