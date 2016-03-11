@@ -10,7 +10,8 @@ const INITIAL_FOLDER_NAME = "home";
 const INITIAL_FOLDER = "/" + INITIAL_FOLDER_NAME;
 const EXECUTABLE = "/bin/node";
 
-function patch_process() {
+function patch_process(container) {
+    const stream = container.require("stream");
     const _process = process;
     var cwd = INITIAL_FOLDER;
     _process.stdin = new stream.Readable();
@@ -39,9 +40,6 @@ function init_globals(container) {
 }
 
 function initialize() {
-    patch_process();
-
-
     const vfs = new VirtualFs(process);
     const httpDir = new HttpDirectory("/node_modules", "node_modules");
     vfs.root.setItem(httpDir);
@@ -82,6 +80,7 @@ function initialize() {
     const container = new NodeContainer(container_fs, INITIAL_FOLDER, module_list, redirects);
 
     init_globals(container);
+    patch_process(container);
     return container;
 }
 

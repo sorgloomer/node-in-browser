@@ -48,7 +48,7 @@ export class NodeContainer {
             this._eval_module(module, source);
         } catch(e) {
             this.modules.delete(module_id);
-            throw new Error("Error while initializing module: " + module_id, e);
+            throw e;
         }
         return module;
     }
@@ -76,7 +76,7 @@ export class NodeContainer {
         }
         const source = this.fs.readFileSync(json_file_name, "utf-8");
         const package_data = JSON.parse(source);
-        result = this._attempt_load_file(parent_module, module_name, Path.resolve(file_name, package_data.main), file_name);
+        result = this._attempt_load_file(parent_module, module_name, Path.resolve(file_name, package_data.browser || package_data.main), file_name);
         if (result) return result;
         return result;
     }
@@ -116,7 +116,7 @@ export class NodeContainer {
     _make_require(module_obj) {
         var _this = this;
         return function require(module_name) {
-            return _this.require(module_obj, module_name);
+            return _this.require_by_parent(module_name, module_obj);
         }
     }
     eval_lines(code) {
