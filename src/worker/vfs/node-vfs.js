@@ -240,6 +240,10 @@ VirtualNodeFs_prototype.createWriteStream = function(path, options) {
   return stream;
 };
 
+function later(fn) {
+  setTimeout(() => { fn(); }, 0);
+}
+
 [
   "stat", "readdir", "mkdirp", "mkdir", "rmdir", "unlink", "readlink",
   "exists", "readFile", "writeFile"
@@ -248,7 +252,7 @@ VirtualNodeFs_prototype.createWriteStream = function(path, options) {
 
   VirtualNodeFs_prototype[fname] = function(...args) {
     const callback = args.pop();
-    setTimeout(() => {
+    later(() => {
       var result = null;
       var succeeded = false;
       try {
@@ -260,7 +264,7 @@ VirtualNodeFs_prototype.createWriteStream = function(path, options) {
       if (succeeded) {
         callback(null, result);
       }
-    }, 0);
+    });
   };
 });
 

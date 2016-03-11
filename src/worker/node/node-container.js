@@ -14,15 +14,20 @@ export function Module(name, directory, exports = {}) {
 }
 
 export class NodeContainer {
-    constructor(fs, modules) {
+    constructor(fs, modules, redirects) {
         this.fs = fs;
         this.modules = new Map(modules.map(x => [x.name, x]));
+        this.redirects = redirects;
         this.main_module = new Module('user', '/user');
     }
-    require(parent_module, module_name) {
+    require_by_parent(module_name, parent_module) {
         const module = this.require_module(parent_module, module_name);
         if (!module) throw new Error('Cannot find module: ' + module_name + " <- " + parent_module._require_path);
         return module.exports;
+    }
+
+    require(module_name) {
+        return this.require_by_parent(module_name, this.main_module);
     }
 
     _attempt_load_file(parent_module, module_name, file_name, module_id) {
@@ -71,17 +76,21 @@ export class NodeContainer {
         return result;
     }
     _require_module_node(parent_module, module_name) {
-        var temp = this.modules.get(module_name);
-        if (temp) return temp;
-        var search = parent_module.directory;
-        for (;;) {
-            const file_candidate = Path.combine(search, 'node_modules', module_name);
-            temp = this._require_module_node_single(parent_module, module_name, file_candidate);
+        if (Object.prototype.hasOwnProperty.call(this.redirects, module_name)) {
+            const redirect = this.redirects[module_name];
+            return this.require_module(parent_module, redirect);
+        } else {
+            var temp = this.modules.get(module_name);
             if (temp) return temp;
-
-            const temp_search = Path.getParent(search);
-            if (temp_search === search) return null;
-            search = temp_search;
+            var search = parent_module.directory;
+            for (;;) {
+                const file_candidate = Path.resolve(search, 'node_modules', module_name);
+                temp = this._require_module_node_single(parent_module, module_name, file_candidate);
+                if (temp) return temp;
+                const temp_search = Path.getParent(search);
+                if (temp_search === search) return null;
+                search = temp_search;
+            }
         }
     }
     require_module(parent_module, module_name) {
@@ -109,6 +118,6 @@ export class NodeContainer {
         return this._eval_module(this.main_module, code);
     }
     eval(code) {
-        this.eval_lines("return " + code);
+        return this.eval_lines("return " + code);
     }
 }
