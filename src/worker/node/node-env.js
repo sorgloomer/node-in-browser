@@ -39,14 +39,14 @@ const EXECUTABLE = "/bin/node";
 
 function patch_process() {
     const _process = process;
+    var cwd = INITIAL_FOLDER;
     _process.stdin = new stream.Readable();
     _process.stdout = ostream("stdout:");
     _process.stderr = ostream("stderr:");
     _process.argv = [EXECUTABLE];
-    _process._cwd = INITIAL_FOLDER;
-    _process.cwd = () => _process._cwd;
+    _process.cwd = () => cwd;
     _process.chdir = d => {
-        _process._cwd = Path.resolve(_process._cwd, d);
+        cwd = Path.resolve(cwd, d);
     };
 }
 
