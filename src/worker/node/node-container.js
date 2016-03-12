@@ -30,22 +30,27 @@ export class NodeContainer {
         return this.require_by_parent(module_name, this.main_module);
     }
 
-    _attempt_load_file(parent_module, module_name, file_name, module_id) {
+    _attempt_load_file(parent_module, module_name, real_file_name, module_id) {
         var temp = this.modules.get(module_id);
         if (temp) return temp;
-        if (!this.fs.existsSync(file_name)) {
+        if (!this.fs.existsSync(real_file_name)) {
             return null;
         }
-        const stat = this.fs.statSync(file_name);
+        const stat = this.fs.statSync(real_file_name);
         if (!stat.isFile()) {
             return null;
         }
-        const source = this.fs.readFileSync(file_name, "utf-8");
-        const module = new Module(module_id, Path.getParent(file_name));
+        const source = this.fs.readFileSync(real_file_name, "utf-8");
+        const module = new Module(module_id, Path.getParent(real_file_name));
         module._require_path = module_name + " <- " + parent_module._require_path;
         this.modules.set(module_id, module);
+
         try {
-            this._eval_module(module, source);
+            if (Path.getExt(real_file_name) === '.json') {
+                module.exports = JSON.parse(source);
+            } else {
+                this._eval_module(module, source);
+            }
         } catch(e) {
             this.modules.delete(module_id);
             throw e;
@@ -60,13 +65,15 @@ export class NodeContainer {
         }
         return result;
     }
-    _require_module_node_single(parent_module, module_name, file_name) {
-        file_name = Path.normalize(file_name);
-        var result = this._attempt_load_file(parent_module, module_name, file_name + '.js', file_name);
+    _require_module_node_single(parent_module, module_name, absolute_module_id) {
+        absolute_module_id = Path.normalize(absolute_module_id);
+        var result = this._attempt_load_file(parent_module, module_name, absolute_module_id, absolute_module_id);
         if (result) return result;
-        result = this._attempt_load_file(parent_module, module_name, Path.resolve(file_name, 'index.js'), file_name);
+        result = this._attempt_load_file(parent_module, module_name, absolute_module_id + '.js', absolute_module_id);
         if (result) return result;
-        const json_file_name = Path.resolve(file_name, 'package.json');
+        result = this._attempt_load_file(parent_module, module_name, Path.resolve(absolute_module_id, 'index.js'), absolute_module_id);
+        if (result) return result;
+        const json_file_name = Path.resolve(absolute_module_id, 'package.json');
         if (!this.fs.existsSync(json_file_name)) {
             return null;
         }
@@ -76,7 +83,8 @@ export class NodeContainer {
         }
         const source = this.fs.readFileSync(json_file_name, "utf-8");
         const package_data = JSON.parse(source);
-        result = this._attempt_load_file(parent_module, module_name, Path.resolve(file_name, package_data.browser || package_data.main), file_name);
+        const real_file_name = typeof package_data.browser === "string" ? package_data.browser : package_data.main;
+        result = this._attempt_load_file(parent_module, module_name, Path.resolve(absolute_module_id, real_file_name), absolute_module_id);
         if (result) return result;
         return result;
     }

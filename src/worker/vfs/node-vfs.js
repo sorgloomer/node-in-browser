@@ -1,11 +1,8 @@
+
 import { VirtualFs } from './virtual-fs';
 import * as Path from './path';
-
-import { Buffer } from 'buffer';
 import errors from 'errno';
-import stream from 'readable-stream';
-
-
+import buffer from 'buffer';
 
 function VirtualFileSystemError(err, path) {
   Error.call(this, err.description);
@@ -27,6 +24,8 @@ VirtualFileSystemError.prototype = VirtualFileSystemError_prototype;
 export function VirtualNodeFs(process, vfs = new VirtualFs()) {
   this._vfs = vfs;
   this._process = process;
+  this._streams = null;
+  this._buffer = buffer;
 
   [
     "ReadStream", "WriteStream", "join", "normalize"
@@ -43,8 +42,13 @@ export function VirtualNodeFs(process, vfs = new VirtualFs()) {
 
 const VirtualNodeFs_prototype = VirtualNodeFs.prototype;
 
-VirtualNodeFs_prototype.ReadStream = stream.Readable;
-VirtualNodeFs_prototype.WriteStream = stream.Writable;
+VirtualNodeFs_prototype._set_streams = function(streams) {
+  this._streams = streams;
+  // TODO
+  // this._buffer = buffer;
+  this.ReadStream = streams.Readable;
+  this.WriteStream = streams.Writable;
+};
 
 function fn_false() { return false; }
 function fn_true() { return true; }
@@ -72,6 +76,7 @@ VirtualNodeFs_prototype.statSync = function statSync(path) {
 
 
 VirtualNodeFs_prototype.readFileSync = function readFileSync(path, encoding) {
+  const Buffer = this._buffer.Buffer;
   var item = null;
   try {
     item = this._vfs.getItem(this._process.cwd(), path, true);
@@ -176,14 +181,16 @@ VirtualNodeFs_prototype.readlinkSync = function readlinkSync (path) {
 };
 
 VirtualNodeFs_prototype.writeFileSync = function writeFileSync(path, content, encoding) {
+  const Buffer = this._buffer.Buffer;
+
   if(!content && !encoding) throw new Error("No content");
   const name = Path.getFileName(path);
-  const ppath = Path.getParent(path);
+  const parent_path = Path.getParent(path);
   const cwd = this._process.cwd();
 
   var parent = null;
   try {
-    parent = this._vfs.getDirectory(cwd, path, true);
+    parent = this._vfs.getDirectory(cwd, parent_path, true);
   } catch (_) {
     throw new VirtualFileSystemError(errors.code.ENOENT, path);
   }
@@ -216,7 +223,7 @@ VirtualNodeFs_prototype.normalize = Path.normalize;
 // stream functions
 
 VirtualNodeFs_prototype.createReadStream = function(path, options) {
-  var stream = new stream.Readable();
+  var stream = new this.ReadStream();
   var done = false;
   var data;
   try {
@@ -245,7 +252,7 @@ VirtualNodeFs_prototype.createReadStream = function(path, options) {
 };
 
 VirtualNodeFs_prototype.createWriteStream = function(path, options) {
-  var stream = new stream.Writable(), _this = this;
+  var stream = new this.WriteStream(), _this = this;
   try {
     // Zero the file and make sure it is writable
     this.writeFileSync(path, new Buffer(0));

@@ -67,5 +67,6 @@ export function getFileNameWithoutExt(path) {
 }
 
 export function getExt(path) {
-  return /\.[^\.\\\/]$/.exec(path) || '';
+  const m = /\.[^\.\\\/]*$/.exec(path);
+  return m ? m[0] : '';
 }

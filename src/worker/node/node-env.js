@@ -10,13 +10,11 @@ const INITIAL_FOLDER_NAME = "home";
 const INITIAL_FOLDER = "/" + INITIAL_FOLDER_NAME;
 const EXECUTABLE = "/bin/node";
 
-function patch_process(container) {
-    const stream = container.require("stream");
-    const _process = process;
+function patch_process(_process, stream) {
     var cwd = INITIAL_FOLDER;
     _process.stdin = new stream.Readable();
-    _process.stdout = ostream("stdout:");
-    _process.stderr = ostream("stderr:");
+    _process.stdout = ostream(stream, "stdout:");
+    _process.stderr = ostream(stream, "stderr:");
     _process.argv = [EXECUTABLE];
     _process.cwd = () => cwd;
     _process.chdir = d => {
@@ -24,19 +22,12 @@ function patch_process(container) {
     };
 }
 
-function ostream(prefix) {
+function ostream(stream, prefix) {
     var result = new stream.Writable();
     result._write = function(chunk, encoding) {
         console.log(prefix + chunk.toString(encoding || 'utf-8'));
     };
     return result;
-}
-
-function init_globals(container) {
-    // Hack browserify's objects into global scope
-    self.Buffer = container.require("stream").Buffer;
-    self.global = self;
-    self.process = process;
 }
 
 function initialize() {
@@ -77,10 +68,18 @@ function initialize() {
         "vm": R+"vm-browserify",
         "zlib": R+"browserify-zlib"
     };
-    const container = new NodeContainer(container_fs, INITIAL_FOLDER, module_list, redirects);
 
-    init_globals(container);
-    patch_process(container);
+
+    // Hack browserify's objects into global scope
+    var _process = process;
+    self.global = self;
+    self.process = _process;
+
+    const container = new NodeContainer(container_fs, INITIAL_FOLDER, module_list, redirects);
+    self.Buffer = container.require("buffer").Buffer;
+    const container_stream = container.require("stream");
+    patch_process(_process, container_stream);
+    container_fs._set_streams(container_stream );
     return container;
 }
 

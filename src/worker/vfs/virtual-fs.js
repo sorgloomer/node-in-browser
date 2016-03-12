@@ -15,7 +15,8 @@ export class VirtualFs {
     return Path.explode(this.resolve(cwd, file)).components;
   }
   getItem(cwd, file, checked, type = null) {
-    const components = this._resolveExplode(cwd, file);
+    const resolved = Path.resolve(cwd, file);
+    const components = Path.explode(resolved).components;
     var item = this.root;
 
     const comp_len_dec = components.length - 1;
@@ -23,13 +24,16 @@ export class VirtualFs {
       for (let i = 0; i < comp_len_dec; i++) {
         const component = components[i];
         item = item && item.getItem(component);
+        if (item && item.type !== "directory") {
+          throw new Error("Path contains files: " + resolved);
+        }
         check();
       }
       item = item && item.getItem(components[comp_len_dec]);
       check();
     }
     if (type && item && item.type !== type) {
-      throw new Error("VirtualFs.getItem item type mismatch");
+      throw new Error("VirtualFs.getItem item type mismatch: " + resolved);
     }
     return item;
 
