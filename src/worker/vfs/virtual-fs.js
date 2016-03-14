@@ -1,6 +1,42 @@
 import * as Path from './path';
 import { MemoryDirectory, MemoryFile } from './mem-fs';
 
+
+
+function any_to_text(x) {
+  if (typeof x === "string") {
+    return x;
+  } else if (x instanceof Uint8Array) {
+    const decoder = new TextDecoder();
+    return decoder.decode(x);
+  } else {
+    throw new Error("cant convert content");
+  }
+}
+
+function any_to_bytes(x) {
+  if (typeof x === "string") {
+    const decoder = new TextEncoder();
+    return decoder.encode(x);
+  } else if (x instanceof Uint8Array) {
+    return x;
+  } else {
+    throw new Error("cant convert content");
+  }
+}
+
+
+function any_to_any(x, type) {
+  switch (type) {
+    case 'text':
+      return any_to_text(x);
+    case 'bytes':
+      return any_to_bytes(x);
+    default:
+      throw new Error("unknown type: " + type);
+  }
+}
+
 export class VirtualFs {
   constructor() {
     this.root = new MemoryDirectory('');
@@ -14,6 +50,32 @@ export class VirtualFs {
   _resolveExplode(cwd, file) {
     return Path.explode(this.resolve(cwd, file)).components;
   }
+
+  getContent(cwd, file) {
+    const item = this.getItem(cwd, file, false);
+    return this.getContentOf(item);
+  }
+  getContentOf(item) {
+    return item && item.type === 'file' ? item.content : null;
+  }
+  getContentOfAs(item, type) {
+    const data = this.getContentOf(item);
+    if (data === null) return null;
+    return any_to_any(data, type);
+  }
+  getContentText(cwd, file) {
+    return this.getContentAs(cwd, file, 'text');
+  }
+  getContentBytes(cwd, file) {
+    return this.getContentAs(cwd, file, 'bytes');
+  }
+  getContentAs(cwd, file, type) {
+    const data = this.getContent(cwd, file);
+    if (data === null) return null;
+    return any_to_any(data, type);
+  }
+
+
   getItem(cwd, file, checked, type = null) {
     const resolved = Path.resolve(cwd, file);
     const components = Path.explode(resolved).components;
@@ -47,7 +109,7 @@ export class VirtualFs {
     if (item.type !== 'file') {
       throw new Error("readFileSync: not a file");
     }
-    return item.contents;
+    return this._vfs.getContentOfAs(item, 'bytes');
   };
 
   mkdir(cwd, path) {
@@ -73,21 +135,6 @@ export class VirtualFs {
   }
   getFile(cwd, path, checked = true) {
     return this.getItem(cwd, path, checked, 'file');
-  }
-
-  storeBytes(cwd, path, content) {
-    this.mkdir(cwd, Path.getParent(path)).setItem(new MemoryFile(Path.getFileName(path), content));
-  }
-  storeText(cwd, path, content) {
-    const encoder = new TextEncoder('utf-8');
-    this.storeBytes(cwd, path, encoder.encode(content));
-  }
-  loadBytes(cwd, path) {
-    return this.getFile(cwd, path, true).contents;
-  }
-  loadText(cwd, path) {
-    const decoder = new TextDecoder('utf-8');
-    return decoder.decode(this.loadBytes(cwd, path));
   }
 
   removeItem(cwd, path, testFn = null) {

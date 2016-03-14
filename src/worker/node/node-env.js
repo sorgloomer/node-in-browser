@@ -36,7 +36,6 @@ function initialize() {
     vfs.root.setItem(httpDir);
     vfs.createDirectory(vfs.root, INITIAL_FOLDER_NAME);
 
-    const container_fs = new VirtualNodeFs(process, vfs);
     const module_fs = new VirtualNodeFs(process, vfs);
 
     const module_list = [
@@ -75,11 +74,10 @@ function initialize() {
     self.global = self;
     self.process = _process;
 
-    const container = new NodeContainer(container_fs, INITIAL_FOLDER, module_list, redirects);
+    const container = new NodeContainer(vfs, INITIAL_FOLDER, module_list, redirects);
     self.Buffer = container.require("buffer").Buffer;
     const container_stream = container.require("stream");
     patch_process(_process, container_stream);
-    container_fs._set_streams(container_stream );
     return container;
 }
 

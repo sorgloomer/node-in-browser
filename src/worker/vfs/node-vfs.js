@@ -86,7 +86,7 @@ VirtualNodeFs_prototype.readFileSync = function readFileSync(path, encoding) {
       case 'directory':
         throw new VirtualFileSystemError(errors.code.EISDIR, path);
       case 'file':
-        const data = new Buffer(item.contents);
+        const data = new Buffer(this._vfs.getContentOfAs(item, 'bytes'));
         return encoding ? data.toString(encoding) : data;
     }
   }

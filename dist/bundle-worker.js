@@ -90,12 +90,12 @@ function Module(name, directory) {
 }
 
 var NodeContainer = exports.NodeContainer = function () {
-    function NodeContainer(fs, cwd, modules) {
+    function NodeContainer(vfs, cwd, modules) {
         var redirects = arguments.length <= 3 || arguments[3] === undefined ? null : arguments[3];
 
         _classCallCheck(this, NodeContainer);
 
-        this.fs = fs;
+        this.vfs = vfs;
         this.redirects = redirects;
         this.modules = new Map(modules.map(function (x) {
             return [x.name, x];
@@ -111,6 +111,11 @@ var NodeContainer = exports.NodeContainer = function () {
             return module.exports;
         }
     }, {
+        key: "_getSource",
+        value: function _getSource(file) {
+            return this.vfs.getContentText("/", file);
+        }
+    }, {
         key: "require",
         value: function require(module_name) {
             return this.require_by_parent(module_name, this.main_module);
@@ -120,14 +125,9 @@ var NodeContainer = exports.NodeContainer = function () {
         value: function _attempt_load_file(parent_module, module_name, real_file_name, module_id) {
             var temp = this.modules.get(module_id);
             if (temp) return temp;
-            if (!this.fs.existsSync(real_file_name)) {
-                return null;
-            }
-            var stat = this.fs.statSync(real_file_name);
-            if (!stat.isFile()) {
-                return null;
-            }
-            var source = this.fs.readFileSync(real_file_name, "utf-8");
+
+            var source = this._getSource(real_file_name);
+            if (source === null) return null;
             var module = new Module(module_id, Path.getParent(real_file_name));
             module._require_path = module_name + " <- " + parent_module._require_path;
             this.modules.set(module_id, module);
@@ -165,14 +165,8 @@ var NodeContainer = exports.NodeContainer = function () {
             result = this._attempt_load_file(parent_module, module_name, Path.resolve(absolute_module_id, 'index.js'), absolute_module_id);
             if (result) return result;
             var json_file_name = Path.resolve(absolute_module_id, 'package.json');
-            if (!this.fs.existsSync(json_file_name)) {
-                return null;
-            }
-            var stat = this.fs.statSync(json_file_name);
-            if (!stat.isFile()) {
-                return null;
-            }
-            var source = this.fs.readFileSync(json_file_name, "utf-8");
+            var source = this._getSource(json_file_name);
+            if (source === null) return null;
             var package_data = JSON.parse(source);
             var real_file_name = typeof package_data.browser === "string" ? package_data.browser : package_data.main;
             result = this._attempt_load_file(parent_module, module_name, Path.resolve(absolute_module_id, real_file_name), absolute_module_id);
@@ -292,7 +286,6 @@ function initialize() {
     vfs.root.setItem(httpDir);
     vfs.createDirectory(vfs.root, INITIAL_FOLDER_NAME);
 
-    var container_fs = new _nodeVfs.VirtualNodeFs(process, vfs);
     var module_fs = new _nodeVfs.VirtualNodeFs(process, vfs);
 
     var module_list = [["child_process", {}], ['fs', module_fs]].map(function (_ref) {
@@ -333,11 +326,10 @@ function initialize() {
     self.global = self;
     self.process = _process;
 
-    var container = new _nodeContainer.NodeContainer(container_fs, INITIAL_FOLDER, module_list, redirects);
+    var container = new _nodeContainer.NodeContainer(vfs, INITIAL_FOLDER, module_list, redirects);
     self.Buffer = container.require("buffer").Buffer;
     var container_stream = container.require("stream");
     patch_process(_process, container_stream);
-    container_fs._set_streams(container_stream);
     return container;
 }
 
@@ -471,22 +463,21 @@ var HttpFile = exports.HttpFile = function () {
     this.name = name;
     this.type = "file";
     this._root_uri = root_uri;
-    this._contents = null;
+    this._content = null;
   }
 
   _createClass(HttpFile, [{
     key: "_fetch",
     value: function _fetch() {
-      return (0, _fetchSync.fetchBytesSync)(this._root_uri);
+      return (0, _fetchSync.fetchSync)(this._root_uri);
     }
   }, {
-    key: "contents",
+    key: "content",
     get: function get() {
-      return this._contents || (this._contents = this._fetch());
+      return this._content || (this._content = this._fetch());
     },
     set: function set(value) {
-      if (!(value instanceof Uint8Array)) throw new Error("File.contents must be Uint8Array");
-      this._contents = value;
+      this._content = value;
     }
   }]);
 
@@ -539,14 +530,12 @@ var MemoryDirectory = exports.MemoryDirectory = function () {
     return MemoryDirectory;
 }();
 
-var MemoryFile = exports.MemoryFile = function MemoryFile(name, contents) {
+var MemoryFile = exports.MemoryFile = function MemoryFile(name, content) {
     _classCallCheck(this, MemoryFile);
-
-    if (!(contents instanceof Uint8Array)) throw new Error("MemoryFile contents must be Uint8Array");
 
     this.name = name;
     this.type = "file";
-    this.contents = contents;
+    this.content = content;
 };
 
 },{}],7:[function(require,module,exports){
@@ -660,7 +649,7 @@ VirtualNodeFs_prototype.readFileSync = function readFileSync(path, encoding) {
       case 'directory':
         throw new VirtualFileSystemError(_errno2.default.code.EISDIR, path);
       case 'file':
-        var data = new Buffer(item.contents);
+        var data = new Buffer(this._vfs.getContentOfAs(item, 'bytes'));
         return encoding ? data.toString(encoding) : data;
     }
   }
@@ -1009,6 +998,39 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
+function any_to_text(x) {
+  if (typeof x === "string") {
+    return x;
+  } else if (x instanceof Uint8Array) {
+    var decoder = new TextDecoder();
+    return decoder.decode(x);
+  } else {
+    throw new Error("cant convert content");
+  }
+}
+
+function any_to_bytes(x) {
+  if (typeof x === "string") {
+    var decoder = new TextEncoder();
+    return decoder.encode(x);
+  } else if (x instanceof Uint8Array) {
+    return x;
+  } else {
+    throw new Error("cant convert content");
+  }
+}
+
+function any_to_any(x, type) {
+  switch (type) {
+    case 'text':
+      return any_to_text(x);
+    case 'bytes':
+      return any_to_bytes(x);
+    default:
+      throw new Error("unknown type: " + type);
+  }
+}
+
 var VirtualFs = exports.VirtualFs = function () {
   function VirtualFs() {
     _classCallCheck(this, VirtualFs);
@@ -1025,6 +1047,41 @@ var VirtualFs = exports.VirtualFs = function () {
     key: '_resolveExplode',
     value: function _resolveExplode(cwd, file) {
       return Path.explode(this.resolve(cwd, file)).components;
+    }
+  }, {
+    key: 'getContent',
+    value: function getContent(cwd, file) {
+      var item = this.getItem(cwd, file, false);
+      return this.getContentOf(item);
+    }
+  }, {
+    key: 'getContentOf',
+    value: function getContentOf(item) {
+      return item && item.type === 'file' ? item.content : null;
+    }
+  }, {
+    key: 'getContentOfAs',
+    value: function getContentOfAs(item, type) {
+      var data = this.getContentOf(item);
+      if (data === null) return null;
+      return any_to_any(data, type);
+    }
+  }, {
+    key: 'getContentText',
+    value: function getContentText(cwd, file) {
+      return this.getContentAs(cwd, file, 'text');
+    }
+  }, {
+    key: 'getContentBytes',
+    value: function getContentBytes(cwd, file) {
+      return this.getContentAs(cwd, file, 'bytes');
+    }
+  }, {
+    key: 'getContentAs',
+    value: function getContentAs(cwd, file, type) {
+      var data = this.getContent(cwd, file);
+      if (data === null) return null;
+      return any_to_any(data, type);
     }
   }, {
     key: 'getItem',
@@ -1064,7 +1121,7 @@ var VirtualFs = exports.VirtualFs = function () {
       if (item.type !== 'file') {
         throw new Error("readFileSync: not a file");
       }
-      return item.contents;
+      return this._vfs.getContentOfAs(item, 'bytes');
     }
   }, {
     key: 'mkdir',
@@ -1098,28 +1155,6 @@ var VirtualFs = exports.VirtualFs = function () {
       var checked = arguments.length <= 2 || arguments[2] === undefined ? true : arguments[2];
 
       return this.getItem(cwd, path, checked, 'file');
-    }
-  }, {
-    key: 'storeBytes',
-    value: function storeBytes(cwd, path, content) {
-      this.mkdir(cwd, Path.getParent(path)).setItem(new _memFs.MemoryFile(Path.getFileName(path), content));
-    }
-  }, {
-    key: 'storeText',
-    value: function storeText(cwd, path, content) {
-      var encoder = new TextEncoder('utf-8');
-      this.storeBytes(cwd, path, encoder.encode(content));
-    }
-  }, {
-    key: 'loadBytes',
-    value: function loadBytes(cwd, path) {
-      return this.getFile(cwd, path, true).contents;
-    }
-  }, {
-    key: 'loadText',
-    value: function loadText(cwd, path) {
-      var decoder = new TextDecoder('utf-8');
-      return decoder.decode(this.loadBytes(cwd, path));
     }
   }, {
     key: 'removeItem',

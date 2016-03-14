@@ -1,4 +1,4 @@
-import { fetchBytesSync, fetchJsonSync } from './fetch-sync';
+import { fetchSync, fetchJsonSync } from './fetch-sync';
 
 const DIR_SUFFIX = "/dir-listing";
 
@@ -50,16 +50,15 @@ export class HttpFile {
     this.name = name;
     this.type = "file";
     this._root_uri = root_uri;
-    this._contents = null;
+    this._content = null;
   }
   _fetch() {
-    return fetchBytesSync(this._root_uri);
+    return fetchSync(this._root_uri);
   }
-  get contents() {
-    return this._contents || (this._contents = this._fetch());
+  get content() {
+    return this._content || (this._content = this._fetch());
   }
-  set contents(value) {
-    if (!(value instanceof Uint8Array)) throw new Error("File.contents must be Uint8Array");
-    this._contents = value;
+  set content(value) {
+    this._content = value;
   }
 }

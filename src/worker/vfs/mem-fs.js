@@ -23,11 +23,9 @@ export class MemoryDirectory  {
 }
 
 export class MemoryFile {
-    constructor(name, contents) {
-        if (!(contents instanceof Uint8Array)) throw new Error("MemoryFile contents must be Uint8Array");
-
+    constructor(name, content) {
         this.name = name;
         this.type = "file";
-        this.contents = contents;
+        this.content = content;
     }
 }
