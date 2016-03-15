@@ -27,9 +27,12 @@
     console.log("npm required, npm load...");
     npm.load({}, e => {
       if (e) return console.error(e);
-      console.log("npm loaded, installing babel");
-      npm.commands.install(["babel"]);
-      console.log("babel installed");
+      console.log("npm loaded, invoke npm install");
+      npm.commands.install(["babel"], e => {
+        if (e) return console.error(e);
+        console.log("babel installed");
+      });
+      console.log("modules loaded, installing babel");
     });
     console.log("npm load fired");
 </textarea>

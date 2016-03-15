@@ -218,7 +218,7 @@ VirtualNodeFs_prototype.unlinkSync = function unlinkSync(path) {
   });
 };
 
-VirtualNodeFs_prototype.realpath = function realpath(path) {
+VirtualNodeFs_prototype.realpathSync = function realpathSync(path) {
   var cache = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
 
   return this._path.normalize(path);

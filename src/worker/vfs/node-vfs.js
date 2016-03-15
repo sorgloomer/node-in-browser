@@ -174,7 +174,7 @@ VirtualNodeFs_prototype.unlinkSync = function unlinkSync(path) {
   this._remove(path, i => i.type === 'file');
 };
 
-VirtualNodeFs_prototype.realpath = function realpath(path, cache = null) {
+VirtualNodeFs_prototype.realpathSync = function realpathSync(path, cache = null) {
   return this._path.normalize(path);
 };
 
