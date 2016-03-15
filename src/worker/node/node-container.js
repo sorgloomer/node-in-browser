@@ -51,7 +51,7 @@ export class NodeContainer {
             }
         } catch(e) {
             this.modules.delete(module_id);
-            throw e;
+            throw new Error("Couldn't instantiate module: " + module._require_path + ", error: " + e.message, e);
         }
         return module;
     }

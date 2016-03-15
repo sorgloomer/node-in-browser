@@ -41,7 +41,12 @@ module.exports = function(grunt) {
         copy: {
             dist: {
                 files: [
-                    {expand: true, cwd: 'src/browser/', src: '**/*.html', dest: 'dist/'}
+                    {expand: true, cwd: 'src/browser/', src: '**/*.html', dest: 'dist/'},
+                    {expand: true, cwd: '.tmp/babel/worker/modules', src: '**/*.js', dest: 'public/modules/'},
+                    {
+                        'public/modules/node-vfs.js': '.tmp/babel/worker/vfs/node-vfs.js',
+                        'public/modules/node_modules/vfs_path.js': '.tmp/babel/worker/vfs/path.js'
+                    }
                 ]
             }
         },
@@ -49,7 +54,7 @@ module.exports = function(grunt) {
             dist: {
                 options: {
                     port: 9001,
-                    base: ["./public" ,"./dist"],
+                    base: ["./public", "./dist"],
                     keepalive: true
                 }
             }
@@ -59,7 +64,7 @@ module.exports = function(grunt) {
     grunt.registerTask('annotate', function() {
         const META_FILE = "dir-listing";
 
-        traverse("./public/node_modules");
+        traverse("./public");
         function traverse(parentPath) {
             const entries = grunt.file.expand(parentPath + "/*");
             entries.filter(f => filename(f) !== META_FILE);

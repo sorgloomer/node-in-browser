@@ -1,0 +1,13 @@
+{
+  "files": [
+    "child_process.js",
+    "dir-listing",
+    "fs.js",
+    "node-vfs.js",
+    "process-init.js",
+    "process.js"
+  ],
+  "directories": [
+    "node_modules"
+  ]
+}

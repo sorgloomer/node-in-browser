@@ -1,0 +1,10 @@
+{
+  "files": [
+    "dir-listing",
+    "package.json"
+  ],
+  "directories": [
+    "modules",
+    "node_modules"
+  ]
+}

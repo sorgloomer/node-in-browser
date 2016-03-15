@@ -7,6 +7,7 @@
     "constants-browserify": "^1.0.0",
     "crypto-browserify": "^3.11.0",
     "domain-browser": "^1.1.7",
+    "errno": "^0.1.4",
     "events": "^1.1.0",
     "http-browserify": "^1.7.0",
     "https-browserify": "0.0.1",

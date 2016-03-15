@@ -1,50 +1,50 @@
 
 
-import { VirtualNodeFs } from "../vfs/node-vfs";
 import { VirtualFs } from "../vfs/virtual-fs";
 import { HttpDirectory } from "../vfs/http-fs";
+import Binding from "./binding";
 import * as Path from "../vfs/path";
-import { NodeContainer, Module  }from "./node-container";
+import { NodeContainer, Module  } from "./node-container";
 
 const INITIAL_FOLDER_NAME = "home";
 const INITIAL_FOLDER = "/" + INITIAL_FOLDER_NAME;
 const EXECUTABLE = "/bin/node";
 
-function patch_process(_process, stream) {
-    var cwd = INITIAL_FOLDER;
-    _process.stdin = new stream.Readable();
-    _process.stdout = ostream(stream, "stdout:");
-    _process.stderr = ostream(stream, "stderr:");
-    _process.argv = [EXECUTABLE];
-    _process.cwd = () => cwd;
-    _process.chdir = d => {
-        cwd = Path.resolve(cwd, d);
-    };
-}
-
-function ostream(stream, prefix) {
-    var result = new stream.Writable();
-    result._write = function(chunk, encoding) {
-        console.log(prefix + chunk.toString(encoding || 'utf-8'));
-    };
-    return result;
-}
+const INIT_PROGRAM = `
+  var scope = self;
+  scope.global = scope;
+  scope.Buffer = require('buffer').Buffer;
+  var Process = require('browser-process');
+  var binding = require('binding');
+  var process = new Process(binding);
+  scope.process = process;
+  // browser-process-init depends on streams transitively
+  // but streams depend on process.nextTick
+  // so initialization of process had to be splitted
+  // to fulfill the dependency graph
+  require('browser-process-init')(process);
+`;
 
 function initialize() {
-    const vfs = new VirtualFs(process);
+    const vfs = new VirtualFs();
     const httpDir = new HttpDirectory("/node_modules", "node_modules");
     vfs.root.setItem(httpDir);
+    const moduleDir = new HttpDirectory("/modules", "modules");
+    vfs.root.setItem(moduleDir);
     vfs.createDirectory(vfs.root, INITIAL_FOLDER_NAME);
 
-    const module_fs = new VirtualNodeFs(process, vfs);
+    const binding = new Binding(vfs, EXECUTABLE, INITIAL_FOLDER);
+    const module_list = [new Module('binding', null, binding)];
 
-    const module_list = [
-        ["child_process", {}],
-        ['fs', module_fs ]
-    ].map(([name, exp]) => new Module(name, null, exp));
-
+    const M = "/modules/";
     const R = "/node_modules/";
     const redirects = {
+        "fs": M+"fs",
+        "child_process": M+"child_process",
+        "node-vfs": M+"node-vfs",
+        "browser-process": M+"process",
+        "browser-process-init": M+"process-init",
+
         "assert": R+"assert",
         "buffer": R+"buffer",
         "console": R+"console-browserify",
@@ -69,15 +69,11 @@ function initialize() {
     };
 
 
-    // Hack browserify's objects into global scope
-    var _process = process;
-    self.global = self;
-    self.process = _process;
-
     const container = new NodeContainer(vfs, INITIAL_FOLDER, module_list, redirects);
-    self.Buffer = container.require("buffer").Buffer;
-    const container_stream = container.require("stream");
-    patch_process(_process, container_stream);
+
+    // setup node globals and process
+    container.eval_lines(INIT_PROGRAM);
+
     return container;
 }
 

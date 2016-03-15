@@ -4,6 +4,5 @@ function ns(f) {
       throw new Error("Operation " + f + " is not supported.");
     };
 }
-export default {
-    exec: ns("exec")
-};
+
+exports.exec = ns("exec");
