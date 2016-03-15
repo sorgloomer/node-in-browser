@@ -20,6 +20,10 @@ const VirtualFileSystemError_prototype = Object.create(Error.prototype);
 VirtualFileSystemError_prototype.name = "VirtualFileSystemError";
 VirtualFileSystemError.prototype = VirtualFileSystemError_prototype;
 
+function Object_entries(o) {
+  return Object.keys(o).map(k => [k,o[k]]);
+}
+
 // We manipulate prototype in the old way, so not using class here
 export function VirtualNodeFs(process, vfs) {
   this._vfs = vfs;
@@ -34,13 +38,12 @@ export function VirtualNodeFs(process, vfs) {
   this.join = path.combine;
   this.normalize = path.normalize;
 
-  [
-    "existsSync" ,"statSync", "readFileSync", "readdirSync", "mkdirpSync","mkdirSync", "rmdirSync", "unlinkSync", "readlinkSync", "writeFileSync",
-    "createReadStream", "createWriteStream",
 
-    "stat", "readdir", "mkdirp", "mkdir", "rmdir", "unlink", "readlink",
-    "exists", "readFile", "writeFile"
-  ].forEach(k => { this[k] = this[k].bind(this); });
+  Object_entries(VirtualNodeFs_prototype)
+      .filter(([k,v]) => typeof v === "function")
+      .forEach(([k,v]) => {
+    this[k] = v.bind(this);
+  });
 }
 
 const VirtualNodeFs_prototype = VirtualNodeFs.prototype;
@@ -167,11 +170,15 @@ VirtualNodeFs_prototype.rmdirSync = function rmdirSync(path) {
   this._remove(path, i => i.type === 'directory');
 };
 
-VirtualNodeFs_prototype.unlinkSync  = function unlinkSync (path) {
+VirtualNodeFs_prototype.unlinkSync = function unlinkSync(path) {
   this._remove(path, i => i.type === 'file');
 };
 
-VirtualNodeFs_prototype.readlinkSync = function readlinkSync (path) {
+VirtualNodeFs_prototype.realpath = function realpath(path, cache = null) {
+  return this._path.normalize(path);
+};
+
+VirtualNodeFs_prototype.readlinkSync = function readlinkSync(path) {
   throw new VirtualFileSystemError(this._errno.code.ENOSYS, path);
 };
 
@@ -269,7 +276,7 @@ function later(fn) {
 
 [
   "stat", "readdir", "mkdirp", "mkdir", "rmdir", "unlink", "readlink",
-  "exists", "readFile", "writeFile"
+  "exists", "readFile", "writeFile", "realpath"
 ].forEach(fname => {
   const sname = fname + "Sync";
 

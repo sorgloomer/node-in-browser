@@ -58,6 +58,19 @@ module.exports = function () {
         value: function chdir(rel) {
             this._cwd = this.binding.path.resolve(this._cwd, rel);
         }
+    }, {
+        key: "umask",
+        value: function umask() {
+            var mask = arguments.length <= 0 || arguments[0] === undefined ? null : arguments[0];
+
+            // TODO: handle state
+            return 511;
+        }
+    }, {
+        key: "on",
+        value: function on(eventName, cb) {
+            // TODO
+        }
     }]);
 
     return Process;

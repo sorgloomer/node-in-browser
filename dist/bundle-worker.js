@@ -4,6 +4,7 @@
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
+exports.default = make_binding;
 
 var _path = require("../vfs/path");
 
@@ -11,18 +12,17 @@ var Path = _interopRequireWildcard(_path);
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+function make_binding(vfs, exe, cwd) {
+    binding.path = Path;
+    binding.vfs = vfs;
+    binding.cwd = cwd;
+    binding.executable = exe;
+    return binding;
 
-var Binding = function Binding(vfs, exe, cwd) {
-    _classCallCheck(this, Binding);
-
-    this.path = Path;
-    this.vfs = vfs;
-    this.cwd = cwd;
-    this.executable = exe;
-};
-
-exports.default = Binding;
+    function binding() {
+        return {};
+    }
+}
 
 },{"../vfs/path":8}],2:[function(require,module,exports){
 'use strict';
@@ -115,6 +115,25 @@ function Module(name, directory) {
     this._require_path = "";
 }
 
+function ModuleError(module, path, inner) {
+    var message = "Couldn't initialize module: " + module + " (" + path + ") because of: " + inner.message;
+    Error.call(this, message);
+    this.inner = inner;
+    this.module = module;
+    this.path = path;
+}
+ModuleError.prototype = Object.create(Error.prototype);
+ModuleError.prototype.constructor = ModuleError;
+ModuleError.prototype.name = 'ModuleError';
+
+function entry_from_package_data(pd) {
+    if (pd !== null) {
+        if (typeof pd.browser === "string") return pd.browser;
+        if (typeof pd.main === "string") return pd.main;
+    }
+    return "index.js";
+}
+
 var NodeContainer = exports.NodeContainer = function () {
     function NodeContainer(vfs, cwd, modules) {
         var redirects = arguments.length <= 3 || arguments[3] === undefined ? null : arguments[3];
@@ -149,13 +168,18 @@ var NodeContainer = exports.NodeContainer = function () {
     }, {
         key: "_attempt_load_file",
         value: function _attempt_load_file(parent_module, module_name, real_file_name, module_id) {
-            var temp = this.modules.get(module_id);
+            var temp;
+            temp = this.modules.get(real_file_name);
+            if (temp) return temp;
+            temp = this.modules.get(module_id);
             if (temp) return temp;
 
             var source = this._getSource(real_file_name);
             if (source === null) return null;
             var module = new Module(module_id, Path.getParent(real_file_name));
-            module._require_path = module_name + " <- " + parent_module._require_path;
+            module._require_path = module_id + " (" + module_name + ") <- " + parent_module._require_path;
+
+            this.modules.set(real_file_name, module);
             this.modules.set(module_id, module);
 
             try {
@@ -165,8 +189,17 @@ var NodeContainer = exports.NodeContainer = function () {
                     this._eval_module(module, source);
                 }
             } catch (e) {
+                this.modules.delete(real_file_name);
                 this.modules.delete(module_id);
-                throw new Error("Couldn't instantiate module: " + module._require_path + ", error: " + e.message, e);
+                if (e instanceof ModuleError) {
+                    throw e;
+                } else {
+                    var re = new ModuleError(module.name, module._require_path, e);
+                    // Chrome does not log anything except the error name for some reason,
+                    // that's why the explicit logging
+                    console.error(re);
+                    throw re;
+                }
             }
             return module;
         }
@@ -174,30 +207,30 @@ var NodeContainer = exports.NodeContainer = function () {
         key: "_require_module_local",
         value: function _require_module_local(parent_module, module_name) {
             var file_name = Path.resolve(parent_module.directory, module_name);
-            var result = this._attempt_load_file(parent_module, module_name, file_name, file_name);
-            if (!result && !Path.getExt(file_name)) {
-                result = this._attempt_load_file(parent_module, module_name, file_name + '.js', file_name + '.js');
-            }
-            return result;
+            return this._require_module_node_single(parent_module, module_name, file_name);
+        }
+    }, {
+        key: "_attempt_load_file_ext",
+        value: function _attempt_load_file_ext(parent_module, module_name, real_file_name, module_id) {
+            var result = this._attempt_load_file(parent_module, module_name, real_file_name, module_id);
+            if (result) return result;
+            result = this._attempt_load_file(parent_module, module_name, real_file_name + '.js', module_id);
+            if (result) return result;
+            return this._attempt_load_file(parent_module, module_name, real_file_name + '.json', module_id);
         }
     }, {
         key: "_require_module_node_single",
         value: function _require_module_node_single(parent_module, module_name, absolute_module_id) {
             absolute_module_id = Path.normalize(absolute_module_id);
-            var result = this._attempt_load_file(parent_module, module_name, absolute_module_id, absolute_module_id);
+            var result = this._attempt_load_file_ext(parent_module, module_name, absolute_module_id, absolute_module_id);
             if (result) return result;
-            result = this._attempt_load_file(parent_module, module_name, absolute_module_id + '.js', absolute_module_id);
-            if (result) return result;
-            result = this._attempt_load_file(parent_module, module_name, Path.resolve(absolute_module_id, 'index.js'), absolute_module_id);
-            if (result) return result;
+
             var json_file_name = Path.resolve(absolute_module_id, 'package.json');
+
             var source = this._getSource(json_file_name);
-            if (source === null) return null;
-            var package_data = JSON.parse(source);
-            var real_file_name = typeof package_data.browser === "string" ? package_data.browser : package_data.main;
-            result = this._attempt_load_file(parent_module, module_name, Path.resolve(absolute_module_id, real_file_name), absolute_module_id);
-            if (result) return result;
-            return result;
+            var package_data = source === null ? null : JSON.parse(source);
+            var real_file_name = entry_from_package_data(package_data);
+            return this._attempt_load_file_ext(parent_module, module_name, Path.resolve(absolute_module_id, real_file_name), absolute_module_id);
         }
     }, {
         key: "_require_module_node",
@@ -209,6 +242,7 @@ var NodeContainer = exports.NodeContainer = function () {
                 var temp = this.modules.get(module_name);
                 if (temp) return temp;
                 var search = parent_module.directory;
+                // if (module_name === "retry") debugger;
                 for (;;) {
                     var file_candidate = Path.resolve(search, 'node_modules', module_name);
                     temp = this._require_module_node_single(parent_module, module_name, file_candidate);
@@ -231,7 +265,8 @@ var NodeContainer = exports.NodeContainer = function () {
     }, {
         key: "_eval_module",
         value: function _eval_module(module_obj, code) {
-            return new Function('require', 'module', 'exports', '__filename', '__dirname', code)(this._make_require(module_obj), module_obj, module_obj.exports, module_obj.filename, module_obj.directory);
+            var decorated_code = "\n// module: " + JSON.stringify(module_obj.name) + "\n// file: " + JSON.stringify(module_obj.filename) + "\n// dir: " + JSON.stringify(module_obj.directory) + "\n\n" + code;
+            return new Function('require', 'module', 'exports', '__filename', '__dirname', decorated_code)(this._make_require(module_obj), module_obj, module_obj.exports, module_obj.filename, module_obj.directory);
         }
     }, {
         key: "_make_require",
@@ -295,12 +330,13 @@ function initialize() {
     vfs.root.setItem(moduleDir);
     vfs.createDirectory(vfs.root, INITIAL_FOLDER_NAME);
 
-    var binding = new _binding2.default(vfs, EXECUTABLE, INITIAL_FOLDER);
+    var binding = (0, _binding2.default)(vfs, EXECUTABLE, INITIAL_FOLDER);
     var module_list = [new _nodeContainer.Module('binding', null, binding)];
 
     var M = "/modules/";
     var R = "/node_modules/";
     var redirects = {
+
         "fs": M + "fs",
         "child_process": M + "child_process",
         "node-vfs": M + "node-vfs",
@@ -316,6 +352,7 @@ function initialize() {
         "events": R + "events",
         "http": R + "http-browserify",
         "https": R + "https-browserify",
+        "net": R + "net-browserify",
         "os": R + "os-browserify",
         "path": R + "path-browserify",
         "punycode": R + "punycode",
@@ -323,11 +360,14 @@ function initialize() {
         "stream": R + "stream-browserify",
         "string_decoder": R + "string_decoder",
         "timers": R + "timers-browserify",
+        "tls": R + "tls-browserify",
         "tty": R + "tty-browserify",
         "url": R + "url",
         "util": R + "util",
         "vm": R + "vm-browserify",
-        "zlib": R + "browserify-zlib"
+        "zlib": R + "browserify-zlib",
+
+        "_stream_transform": R + "readable-stream/lib/_stream_transform.js"
     };
 
     var container = new _nodeContainer.NodeContainer(vfs, INITIAL_FOLDER, module_list, redirects);

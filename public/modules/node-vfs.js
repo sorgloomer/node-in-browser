@@ -3,6 +3,9 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+
+var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
+
 exports.VirtualNodeFs = VirtualNodeFs;
 
 var _buffer = require('buffer');
@@ -41,6 +44,12 @@ var VirtualFileSystemError_prototype = Object.create(Error.prototype);
 VirtualFileSystemError_prototype.name = "VirtualFileSystemError";
 VirtualFileSystemError.prototype = VirtualFileSystemError_prototype;
 
+function Object_entries(o) {
+  return Object.keys(o).map(function (k) {
+    return [k, o[k]];
+  });
+}
+
 // We manipulate prototype in the old way, so not using class here
 function VirtualNodeFs(process, vfs) {
   var _this = this;
@@ -57,8 +66,19 @@ function VirtualNodeFs(process, vfs) {
   this.join = path.combine;
   this.normalize = path.normalize;
 
-  ["existsSync", "statSync", "readFileSync", "readdirSync", "mkdirpSync", "mkdirSync", "rmdirSync", "unlinkSync", "readlinkSync", "writeFileSync", "createReadStream", "createWriteStream", "stat", "readdir", "mkdirp", "mkdir", "rmdir", "unlink", "readlink", "exists", "readFile", "writeFile"].forEach(function (k) {
-    _this[k] = _this[k].bind(_this);
+  Object_entries(VirtualNodeFs_prototype).filter(function (_ref) {
+    var _ref2 = _slicedToArray(_ref, 2);
+
+    var k = _ref2[0];
+    var v = _ref2[1];
+    return typeof v === "function";
+  }).forEach(function (_ref3) {
+    var _ref4 = _slicedToArray(_ref3, 2);
+
+    var k = _ref4[0];
+    var v = _ref4[1];
+
+    _this[k] = v.bind(_this);
   });
 }
 
@@ -198,6 +218,12 @@ VirtualNodeFs_prototype.unlinkSync = function unlinkSync(path) {
   });
 };
 
+VirtualNodeFs_prototype.realpath = function realpath(path) {
+  var cache = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
+
+  return this._path.normalize(path);
+};
+
 VirtualNodeFs_prototype.readlinkSync = function readlinkSync(path) {
   throw new VirtualFileSystemError(this._errno.code.ENOSYS, path);
 };
@@ -299,7 +325,7 @@ function later(fn) {
   }, 0);
 }
 
-["stat", "readdir", "mkdirp", "mkdir", "rmdir", "unlink", "readlink", "exists", "readFile", "writeFile"].forEach(function (fname) {
+["stat", "readdir", "mkdirp", "mkdir", "rmdir", "unlink", "readlink", "exists", "readFile", "writeFile", "realpath"].forEach(function (fname) {
   var sname = fname + "Sync";
 
   VirtualNodeFs_prototype[fname] = function () {

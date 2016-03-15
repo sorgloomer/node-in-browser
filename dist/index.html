@@ -28,7 +28,7 @@
     npm.load({}, e => {
       if (e) return console.error(e);
       console.log("npm loaded, installing babel");
-      npm.commands.install("babel");
+      npm.commands.install(["babel"]);
       console.log("babel installed");
     });
     console.log("npm load fired");

@@ -2,7 +2,7 @@
 
 import { VirtualFs } from "../vfs/virtual-fs";
 import { HttpDirectory } from "../vfs/http-fs";
-import Binding from "./binding";
+import make_binding from "./binding";
 import * as Path from "../vfs/path";
 import { NodeContainer, Module  } from "./node-container";
 
@@ -33,12 +33,13 @@ function initialize() {
     vfs.root.setItem(moduleDir);
     vfs.createDirectory(vfs.root, INITIAL_FOLDER_NAME);
 
-    const binding = new Binding(vfs, EXECUTABLE, INITIAL_FOLDER);
+    const binding = make_binding(vfs, EXECUTABLE, INITIAL_FOLDER);
     const module_list = [new Module('binding', null, binding)];
 
     const M = "/modules/";
     const R = "/node_modules/";
     const redirects = {
+
         "fs": M+"fs",
         "child_process": M+"child_process",
         "node-vfs": M+"node-vfs",
@@ -54,6 +55,7 @@ function initialize() {
         "events": R+"events",
         "http": R+"http-browserify",
         "https": R+"https-browserify",
+        "net": R+"net-browserify",
         "os": R+"os-browserify",
         "path": R+"path-browserify",
         "punycode": R+"punycode",
@@ -61,11 +63,14 @@ function initialize() {
         "stream": R+"stream-browserify",
         "string_decoder": R+"string_decoder",
         "timers": R+"timers-browserify",
+        "tls": R+"tls-browserify",
         "tty": R+"tty-browserify",
         "url": R+"url",
         "util": R+"util",
         "vm": R+"vm-browserify",
-        "zlib": R+"browserify-zlib"
+        "zlib": R+"browserify-zlib",
+
+        "_stream_transform": R+"readable-stream/lib/_stream_transform.js"
     };
 
 

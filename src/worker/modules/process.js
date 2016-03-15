@@ -34,4 +34,11 @@ module.exports = class Process {
     chdir(rel) {
         this._cwd = this.binding.path.resolve(this._cwd, rel);
     }
+    umask(mask = null) {
+        // TODO: handle state
+        return 0o777;
+    }
+    on(eventName, cb) {
+        // TODO
+    }
 };
